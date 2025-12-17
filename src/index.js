@@ -31,7 +31,7 @@ function setCookie(name, value, maxAge = 3600) {
 export default {
 	async fetch(request, env) {
 
-// 1️⃣ CORS preflight
+		// 1️⃣ CORS preflight
 		if (request.method === "OPTIONS") {
 			return new Response(null, {
 				status: 204,

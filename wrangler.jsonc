@@ -1,18 +1,16 @@
 {
-"$schema": "node_modules/wrangler/config-schema.json",
-"name": "employeeservice",
-"main": "src/index.js",
-"compatibility_date": "2025-12-16",
-
-"observability": {
-	"enabled": true
-},
-
-"d1_databases": [
-	{
-	"binding": "DB",
-	"database_name": "employees_db",
-	"database_id": "5bd7f855-5174-4857-80e8-f88e435baa7c"
-}
-]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "employeeservice",
+	"main": "src/index.js",
+	"compatibility_date": "2025-12-16",
+	"observability": {
+		"enabled": true
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "employees_db",
+			"database_id": "5bd7f855-5174-4857-80e8-f88e435baa7c"
+		}
+	]
 }
