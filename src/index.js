@@ -52,6 +52,9 @@ async function handleLogin(request, env) {
 	}
 	const sessionId = generateSessionId();
 	const expires = new Date(Date.now() + 3600 * 1000).toISOString();
+	// 先移除該 user 的所有舊 session
+	await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
+	// 再新增新 session
 	await env.DB
 		.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
 		.bind(sessionId, user.id, expires)
@@ -128,32 +131,49 @@ async function handleRegister(request, env) {
 async function checkIn(request, env) {
 	const { user_id } = await request.json();
 	const today = new Date().toISOString().slice(0, 10);
-	try {
+	// 先查詢今天是否有紀錄
+	const record = await env.DB.prepare(`
+		SELECT id FROM attendance WHERE user_id = ? AND work_date = ?
+	`).bind(user_id, today).first();
+	if (record) {
+		// 有紀錄就更新 check_in_time
 		await env.DB.prepare(`
-            INSERT INTO attendance (user_id, work_date, check_in_time)
-            VALUES (?, ?, datetime('now'))
-        `).bind(user_id, today).run();
-		return jsonResponse({ message: 'Check-in success' }, 200, request);
-	} catch (e) {
-		return jsonResponse({ error: 'Already checked in today' }, 400, request);
+			UPDATE attendance SET check_in_time = datetime('now'), updated_at = CURRENT_TIMESTAMP
+			WHERE user_id = ? AND work_date = ?
+		`).bind(user_id, today).run();
+		return jsonResponse({ message: '補打卡成功（已更新）' });
+	} else {
+		// 沒有就插入新紀錄
+		await env.DB.prepare(`
+			INSERT INTO attendance (user_id, work_date, check_in_time)
+			VALUES (?, ?, datetime('now'))
+		`).bind(user_id, today).run();
+		return jsonResponse({ message: '打卡成功' });
 	}
 }
 
 async function checkOut(request, env) {
 	const { user_id } = await request.json();
 	const today = new Date().toISOString().slice(0, 10);
-	const result = await env.DB.prepare(`
-        UPDATE attendance
-        SET check_out_time = datetime('now'),
-            updated_at = CURRENT_TIMESTAMP
-        WHERE user_id = ?
-            AND work_date = ?
-            AND check_out_time IS NULL
-    `).bind(user_id, today).run();
-	if (result.meta.changes === 0) {
-		return jsonResponse({ error: 'No check-in record' }, 400, request);
+	// 先查詢今天是否有紀錄
+	const record = await env.DB.prepare(`
+		SELECT id FROM attendance WHERE user_id = ? AND work_date = ?
+	`).bind(user_id, today).first();
+	if (record) {
+		// 有紀錄就更新 check_out_time
+		await env.DB.prepare(`
+			UPDATE attendance SET check_out_time = datetime('now'), updated_at = CURRENT_TIMESTAMP
+			WHERE user_id = ? AND work_date = ?
+		`).bind(user_id, today).run();
+		return jsonResponse({ message: '補下班打卡成功（已更新）' });
+	} else {
+		// 沒有就插入新紀錄（只設 check_out_time）
+		await env.DB.prepare(`
+			INSERT INTO attendance (user_id, work_date, check_out_time)
+			VALUES (?, ?, datetime('now'))
+		`).bind(user_id, today).run();
+		return jsonResponse({ message: '下班打卡成功' });
 	}
-	return jsonResponse({ message: 'Check-out success' }, 200, request);
 }
 
 async function getToday(request, env) {
