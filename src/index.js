@@ -4,9 +4,9 @@
 
 function corsHeaders(request) {
 	// 防呆：request 為 undefined 時允許所有來源
-	let origin = "*";
-	if (request && request.headers && typeof request.headers.get === 'function') {
-		origin = request.headers.get("Origin") ?? "*";
+	let origin = request.headers.get("Origin");
+	if (!origin || origin === "*") {
+		origin = "https://staff-portal.coseligtest.workers.dev";
 	}
 	return {
 		"Access-Control-Allow-Origin": origin,
@@ -179,27 +179,28 @@ async function checkIn(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
 		const user_id = body?.user_id;
+		const period = body?.period || 'period1';
 		if (!user_id) {
 			return jsonResponse({ error: '缺少 user_id' }, 400, request);
 		}
 		const today = new Date().toISOString().slice(0, 10);
-		// 先查詢今天是否有紀錄
+		// 先查詢今天該 period 是否有紀錄
 		const record = await env.DB.prepare(`
-			SELECT id FROM attendance WHERE user_id = ? AND work_date = ?
-		`).bind(user_id, today).first();
+			SELECT id FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
+		`).bind(user_id, today, period).first();
 		if (record) {
 			// 有紀錄就更新 check_in_time
 			await env.DB.prepare(`
-				UPDATE attendance SET check_in_time = datetime('now'), updated_at = CURRENT_TIMESTAMP
-				WHERE user_id = ? AND work_date = ?
-			`).bind(user_id, today).run();
+				UPDATE attendance SET check_in_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now'))
+				WHERE user_id = ? AND work_date = ? AND period = ?
+			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '補打卡成功（已更新）' });
 		} else {
 			// 沒有就插入新紀錄
 			await env.DB.prepare(`
-				INSERT INTO attendance (user_id, work_date, check_in_time)
-				VALUES (?, ?, datetime('now'))
-			`).bind(user_id, today).run();
+				INSERT INTO attendance (user_id, work_date, period, check_in_time)
+				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now')))
+			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '打卡成功' });
 		}
 	} catch (err) {
@@ -212,27 +213,28 @@ async function checkOut(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
 		const user_id = body?.user_id;
+		const period = body?.period || 'period1';
 		if (!user_id) {
 			return jsonResponse({ error: '缺少 user_id' }, 400, request);
 		}
 		const today = new Date().toISOString().slice(0, 10);
-		// 先查詢今天是否有紀錄
+		// 先查詢今天該 period 是否有紀錄
 		const record = await env.DB.prepare(`
-			SELECT id FROM attendance WHERE user_id = ? AND work_date = ?
-		`).bind(user_id, today).first();
+			SELECT id FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
+		`).bind(user_id, today, period).first();
 		if (record) {
 			// 有紀錄就更新 check_out_time
 			await env.DB.prepare(`
-				UPDATE attendance SET check_out_time = datetime('now'), updated_at = CURRENT_TIMESTAMP
-				WHERE user_id = ? AND work_date = ?
-			`).bind(user_id, today).run();
+				UPDATE attendance SET check_out_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now'))
+				WHERE user_id = ? AND work_date = ? AND period = ?
+			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '補下班打卡成功（已更新）' }, 200, request);
 		} else {
 			// 沒有就插入新紀錄（只設 check_out_time）
 			await env.DB.prepare(`
-				INSERT INTO attendance (user_id, work_date, check_out_time)
-				VALUES (?, ?, datetime('now'))
-			`).bind(user_id, today).run();
+				INSERT INTO attendance (user_id, work_date, period, check_out_time)
+				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now')))
+			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '下班打卡成功' }, 200, request);
 		}
 	} catch (err) {
@@ -244,12 +246,18 @@ async function checkOut(request, env) {
 async function getToday(request, env) {
 	const userId = new URL(request.url).searchParams.get('user_id');
 	const today = new Date().toISOString().slice(0, 10);
-	const record = await env.DB.prepare(`
-        SELECT check_in_time, check_out_time
+	const records = await env.DB.prepare(`
+        SELECT period, check_in_time, check_out_time
         FROM attendance
         WHERE user_id = ? AND work_date = ?
-    `).bind(userId, today).first();
-	return jsonResponse(record ?? {}, 200, request);
+    `).bind(userId, today).all();
+	const result = {};
+	for (const record of records.results) {
+		const period = record.period || 'period1';
+		result[`${period}_check_in_time`] = record.check_in_time;
+		result[`${period}_check_out_time`] = record.check_out_time;
+	}
+	return jsonResponse(result, 200, request);
 }
 
 async function getMonth(request, env) {
@@ -284,20 +292,26 @@ async function getMonth(request, env) {
 	const startDate = new Date(year, month - 1, 1).toISOString().slice(0, 10);
 	const endDate = new Date(year, month, 1).toISOString().slice(0, 10);
 	const records = await env.DB.prepare(`
-        SELECT work_date, check_in_time, check_out_time
+        SELECT work_date, period, check_in_time, check_out_time
         FROM attendance
         WHERE user_id = ? AND work_date >= ? AND work_date < ?
-        ORDER BY work_date
+        ORDER BY work_date, period
     `).bind(requestedUserId, startDate, endDate).all();
-	const formattedRecords = records.results.map(record => {
+	const dayMap = {};
+	for (const record of records.results) {
 		const date = new Date(record.work_date);
 		const day = date.getDate();
-		return {
-			day: day,
-			check_in_time: record.check_in_time,
-			check_out_time: record.check_out_time
-		};
-	});
+		const period = record.period || 'period1';
+		if (!dayMap[day]) {
+			dayMap[day] = {};
+		}
+		dayMap[day][`${period}_check_in_time`] = record.check_in_time;
+		dayMap[day][`${period}_check_out_time`] = record.check_out_time;
+	}
+	const formattedRecords = Object.keys(dayMap).map(day => ({
+		day: parseInt(day),
+		...dayMap[day]
+	}));
 	return jsonResponse({ records: formattedRecords }, 200, request);
 }
 
