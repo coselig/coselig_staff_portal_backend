@@ -217,7 +217,7 @@ async function handleManualPunch(request, env) {
 			await env.DB
 				.prepare(`
 					UPDATE attendance 
-					SET check_in_time = ?, check_out_time = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now'))
+					SET check_in_time = ?, check_out_time = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 					WHERE user_id = ? AND work_date = ? AND period = ?
 				`)
 				.bind(checkIn, checkOut, employee_id, date, period)
@@ -293,7 +293,7 @@ async function checkIn(request, env) {
 		if (record) {
 			// 有紀錄就更新 check_in_time
 			await env.DB.prepare(`
-				UPDATE attendance SET check_in_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now'))
+				UPDATE attendance SET check_in_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE user_id = ? AND work_date = ? AND period = ?
 			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '補打卡成功（已更新）' });
@@ -301,7 +301,7 @@ async function checkIn(request, env) {
 			// 沒有就插入新紀錄
 			await env.DB.prepare(`
 				INSERT INTO attendance (user_id, work_date, period, check_in_time)
-				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now')))
+				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
 			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '打卡成功' });
 		}
@@ -327,7 +327,7 @@ async function checkOut(request, env) {
 		if (record) {
 			// 有紀錄就更新 check_out_time
 			await env.DB.prepare(`
-				UPDATE attendance SET check_out_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now'))
+				UPDATE attendance SET check_out_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE user_id = ? AND work_date = ? AND period = ?
 			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '補下班打卡成功（已更新）' }, 200, request);
@@ -335,7 +335,7 @@ async function checkOut(request, env) {
 			// 沒有就插入新紀錄（只設 check_out_time）
 			await env.DB.prepare(`
 				INSERT INTO attendance (user_id, work_date, period, check_out_time)
-				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now')))
+				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
 			`).bind(user_id, today, period).run();
 			return jsonResponse({ message: '下班打卡成功' }, 200, request);
 		}
