@@ -195,8 +195,16 @@ async function handleManualPunch(request, env) {
 
 	// 為每個 period 更新或插入記錄
 	for (const [period, times] of Object.entries(periods)) {
-		const checkIn = times.check_in;
-		const checkOut = times.check_out;
+		let checkIn = times.check_in;
+		let checkOut = times.check_out;
+
+		// 將 HH:mm 轉為完整的 datetime
+		if (checkIn) {
+			checkIn = `${date} ${checkIn}:00`;
+		}
+		if (checkOut) {
+			checkOut = `${date} ${checkOut}:00`;
+		}
 
 		// 檢查是否已有記錄
 		const existing = await env.DB
