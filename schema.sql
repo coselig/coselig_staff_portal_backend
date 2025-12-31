@@ -34,10 +34,11 @@ CREATE TABLE IF NOT EXISTS devices (
   brand TEXT NOT NULL,        -- 品牌 (sunwave, guo)
   model TEXT NOT NULL,        -- 型號 (p404, p210, U4, etc.)
   type TEXT NOT NULL,         -- 類型 (dual, single, wrgb, rgb, relay)
-  module_id TEXT NOT NULL UNIQUE, -- 模組ID
+  module_id TEXT NOT NULL,    -- 模組ID
   channel TEXT NOT NULL,      -- 通道 (1, 2, 3, 4, a, b, x)
   name TEXT NOT NULL,         -- 裝置名稱
   tcp TEXT,                   -- TCP 配置 (可選)
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(module_id, channel)  -- 模組ID和通道的組合必須唯一
 );

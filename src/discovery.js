@@ -31,14 +31,14 @@ export async function handleAddDevice(request, env) {
 
 		const { brand, model, type, module_id, channel, name, tcp } = body;
 
-		// 檢查是否已存在相同的 module_id
+        // 檢查是否已存在相同的 module_id 和 channel 組合
 		const existing = await env.DB
-			.prepare("SELECT id FROM devices WHERE module_id = ?")
-			.bind(module_id)
+            .prepare("SELECT id FROM devices WHERE module_id = ? AND channel = ?")
+            .bind(module_id, channel)
 			.first();
 
 		if (existing) {
-			return jsonResponse({ error: "Device with this module_id already exists" }, 409, request);
+            return jsonResponse({ error: "Device with this module_id and channel already exists" }, 409, request);
 		}
 
 		const result = await env.DB
