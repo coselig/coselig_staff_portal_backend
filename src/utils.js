@@ -3,10 +3,15 @@
  */
 
 export function corsHeaders(request) {
-	// 防呆：request 為 undefined 時允許所有來源
+	// 允許的來源列表
+	const allowedOrigins = [
+		"https://staff.coselig.com",
+		"https://staff-portal.coseligtest.workers.dev",
+	];
+
 	let origin = request.headers.get("Origin");
-	if (!origin || origin === "*") {
-		origin = "https://staff-portal.coseligtest.workers.dev";
+	if (!origin || origin === "*" || !allowedOrigins.includes(origin)) {
+		origin = allowedOrigins[0];  // 預設使用第一個允許的來源
 	}
 	return {
 		"Access-Control-Allow-Origin": origin,

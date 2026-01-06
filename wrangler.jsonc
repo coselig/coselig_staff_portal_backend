@@ -6,6 +6,9 @@
 	"observability": {
 		"enabled": true
 	},
+	// "routes": [
+	// 	"https://staff.coselig.com/*"
+	// ],
 	"d1_databases": [
 		{
 			"binding": "DB",
