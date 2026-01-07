@@ -6,7 +6,7 @@ import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils
 import { handleLogin, handleMe, handleLogout, handleRegister } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth } from './attendance.js';
-import { handleGetDevices, handleAddDevice, handleDeleteDevice, handleUpdateDevice } from './discovery.js';
+import { handleGetDevices, handleAddDevice, handleDeleteDevice, handleUpdateDevice, handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
 
 // Handler functions
 async function handleHealth(request, env) {
@@ -22,6 +22,8 @@ const routes = {
 		"/api/working-staff": handleWorkingStaff,
 		"/api/attendance/month": getMonth,
 		"/api/devices": handleGetDevices,
+		"/api/configurations": handleGetConfigurations,
+		"/api/configurations/load": handleLoadConfiguration,
 	},
 	POST: {
 		"/api/login": handleLogin,
@@ -29,12 +31,14 @@ const routes = {
 		"/api/register": handleRegister,
 		"/api/manual-punch": handleManualPunch,
 		"/api/devices": handleAddDevice,
+		"/api/configurations": handleSaveConfiguration,
 	},
 	PUT: {
 		"/api/devices": handleUpdateDevice,
 	},
 	DELETE: {
 		"/api/devices": handleDeleteDevice,
+		"/api/configurations": handleDeleteConfiguration,
 	},
 };
 

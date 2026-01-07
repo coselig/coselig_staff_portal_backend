@@ -42,3 +42,15 @@ CREATE TABLE IF NOT EXISTS devices (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(module_id, channel)  -- 模組ID和通道的組合必須唯一
 );
+
+-- 設備配置表
+CREATE TABLE IF NOT EXISTS device_configurations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,   -- 關聯到用戶
+  name TEXT NOT NULL,         -- 配置名稱
+  devices TEXT NOT NULL,      -- JSON 格式的設備列表
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(user_id, name)       -- 用戶的配置名稱必須唯一
+);
