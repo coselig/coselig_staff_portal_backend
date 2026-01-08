@@ -80,7 +80,10 @@ export async function checkIn(request, env) {
 		if (!user_id) {
 			return jsonResponse({ error: '缺少 user_id' }, 400, request);
 		}
-		const today = new Date().toISOString().slice(0, 10);
+		// 修正：使用 UTC+8 時區計算今天的日期
+		const now = new Date();
+		const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+		const today = taipeiTime.toISOString().slice(0, 10);
 		// 先查詢今天該 period 是否有紀錄
 		const record = await env.DB.prepare(`
 			SELECT id FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
@@ -114,7 +117,10 @@ export async function checkOut(request, env) {
 		if (!user_id) {
 			return jsonResponse({ error: '缺少 user_id' }, 400, request);
 		}
-		const today = new Date().toISOString().slice(0, 10);
+		// 修正：使用 UTC+8 時區計算今天的日期
+		const now = new Date();
+		const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+		const today = taipeiTime.toISOString().slice(0, 10);
 		// 先查詢今天該 period 是否有紀錄
 		const record = await env.DB.prepare(`
 			SELECT id FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
@@ -142,7 +148,10 @@ export async function checkOut(request, env) {
 
 export async function getToday(request, env) {
 	const userId = new URL(request.url).searchParams.get('user_id');
-	const today = new Date().toISOString().slice(0, 10);
+	// 修正：使用 UTC+8 時區計算今天的日期
+	const now = new Date();
+	const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+	const today = taipeiTime.toISOString().slice(0, 10);
 	const records = await env.DB.prepare(`
         SELECT period, check_in_time, check_out_time
         FROM attendance
