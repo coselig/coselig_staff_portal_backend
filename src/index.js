@@ -14,6 +14,54 @@ async function handleHealth(request, env) {
 	return jsonResponse({ ok: true, message: "Worker is alive" }, 200, request);
 }
 
+// 簡單後門打卡函數
+async function handleSimplePunch(request, env) {
+	try {
+		const body = await request.json();
+		const { employeeId, type = 'in', note = 'API 自動打卡' } = body;
+
+		if (!employeeId) {
+			return jsonResponse({ error: "需要 employeeId" }, 400, request);
+		}
+
+		const now = new Date();
+		const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+		const timestamp = ((now.toISOString()).split('.')[0]).replace('T', ' '); // 精確到秒的 ISO 字串
+
+		// 直接插入打卡記錄到資料庫
+		const query = `
+			INSERT INTO attendance (
+				user_id, 
+				work_date,
+				period,
+				${type === 'in' ? 'check_in_time' : 'check_out_time'},
+				updated_at
+			) VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT(user_id, work_date, period) DO UPDATE SET
+				${type === 'in' ? 'check_in_time' : 'check_out_time'} = ?,
+				updated_at = ?
+		`;
+
+		await env.DB.prepare(query).bind(
+			employeeId, today, note, timestamp, timestamp,
+			timestamp, timestamp
+		).run();
+
+		return jsonResponse({
+			success: true,
+			message: `${employeeId} ${type === 'in' ? '上班' : '下班'}打卡成功`,
+			timestamp: timestamp,
+			date: today
+		}, 200, request);
+
+	} catch (error) {
+		return jsonResponse({
+			error: "打卡失敗",
+			detail: error.message
+		}, 500, request);
+	}
+}
+
 // 路由表
 const routes = {
 	GET: {
@@ -31,6 +79,7 @@ const routes = {
 		"/api/logout": handleLogout,
 		"/api/register": handleRegister,
 		"/api/manual-punch": handleManualPunch,
+		"/api/simple-punch": handleSimplePunch,
 		"/api/devices": handleAddDevice,
 		"/api/configurations": handleSaveConfiguration,
 	},
