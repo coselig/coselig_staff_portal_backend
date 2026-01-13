@@ -56,7 +56,7 @@ export async function handleMe(request, env) {
 		return jsonResponse({ error: "Session expired" }, 401, request);
 	}
 	const user = await env.DB
-		.prepare("SELECT id, name, email, role FROM users WHERE id = ?")
+		.prepare("SELECT id, name, chinese_name, email, role FROM users WHERE id = ?")
 		.bind(session.user_id)
 		.first();
 	// 確保 user 物件有 id 欄位

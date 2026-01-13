@@ -23,7 +23,7 @@ export async function handleEmployees(request, env) {
 
 	// 獲取所有員工（包括admin身分組）
 	const employees = await env.DB
-		.prepare("SELECT id, name, email, role FROM users ORDER BY name")
+		.prepare("SELECT id, name, chinese_name, email, role FROM users ORDER BY name")
 		.all();
 
 	return jsonResponse({ employees: employees.results }, 200, request);
