@@ -21,9 +21,9 @@ export async function handleEmployees(request, env) {
 		return jsonResponse({ error: "Access denied. Admin only." }, 403, request);
 	}
 
-	// 獲取所有員工
+	// 獲取所有員工（包括admin身分組）
 	const employees = await env.DB
-		.prepare("SELECT id, name, email, role FROM users WHERE role = 'employee' ORDER BY name")
+		.prepare("SELECT id, name, email, role FROM users ORDER BY name")
 		.all();
 
 	return jsonResponse({ employees: employees.results }, 200, request);
