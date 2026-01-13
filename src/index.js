@@ -5,7 +5,7 @@
 import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils.js';
 import { handleLogin, handleMe, handleLogout, handleRegister } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
-import { handleManualPunch, checkIn, checkOut, getToday, getMonth } from './attendance.js';
+import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleGetDevices, handleAddDevice, handleDeleteDevice, handleUpdateDevice, handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
@@ -87,6 +87,7 @@ const routes = {
 	},
 	PUT: {
 		"/api/devices": handleUpdateDevice,
+		"/api/attendance/period": updatePeriodName,
 	},
 	DELETE: {
 		"/api/devices": handleDeleteDevice,

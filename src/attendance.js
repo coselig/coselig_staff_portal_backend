@@ -221,3 +221,44 @@ export async function getMonth(request, env) {
 	}));
 	return jsonResponse({ records: formattedRecords }, 200, request);
 }
+
+// 更新期間名稱
+export async function updatePeriodName(request, env) {
+	const cookie = request.headers.get("Cookie") || "";
+	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
+	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
+
+	const sessionId = match[1];
+	const session = await env.DB
+		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
+		.bind(sessionId)
+		.first();
+
+	if (!session || new Date(session.expires_at) < new Date()) {
+		return jsonResponse({ error: "Session expired" }, 401, request);
+	}
+
+	const body = await request.json().catch(() => null);
+	if (!body?.oldPeriod || !body?.newPeriod) {
+		return jsonResponse({ error: "Missing oldPeriod or newPeriod" }, 400, request);
+	}
+
+	const { oldPeriod, newPeriod } = body;
+
+	try {
+		// 更新該用戶所有記錄中的期間名稱
+		const result = await env.DB
+			.prepare("UPDATE attendance SET period = ? WHERE user_id = ? AND period = ?")
+			.bind(newPeriod, session.user_id, oldPeriod)
+			.run();
+
+		return jsonResponse({
+			success: true,
+			message: `已更新 ${result.changes} 筆記錄的期間名稱`,
+			changes: result.changes
+		}, 200, request);
+	} catch (error) {
+		console.error('更新期間名稱失敗:', error);
+		return jsonResponse({ error: "更新失敗" }, 500, request);
+	}
+}
