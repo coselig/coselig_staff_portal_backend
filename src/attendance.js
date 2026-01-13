@@ -203,6 +203,7 @@ export async function getMonth(request, env) {
         WHERE user_id = ? AND work_date >= ? AND work_date < ?
         ORDER BY work_date, period
     `).bind(requestedUserId, startDate, endDate).all();
+
 	const dayMap = {};
 	for (const record of records.results) {
 		const date = new Date(record.work_date);

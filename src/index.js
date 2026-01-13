@@ -24,9 +24,11 @@ async function handleSimplePunch(request, env) {
 			return jsonResponse({ error: "需要 employeeId" }, 400, request);
 		}
 
+		// 修正：使用 UTC+8 時區計算今天的日期和時間戳
 		const now = new Date();
-		const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
-		const timestamp = ((now.toISOString()).split('.')[0]).replace('T', ' '); // 精確到秒的 ISO 字串
+		const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+		const today = taipeiTime.toISOString().slice(0, 10); // YYYY-MM-DD
+		const timestamp = taipeiTime.toISOString().slice(0, 19).replace('T', ' '); // 精確到秒的時間戳
 
 		// 直接插入打卡記錄到資料庫
 		const query = `
