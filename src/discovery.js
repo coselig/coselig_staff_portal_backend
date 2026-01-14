@@ -34,21 +34,21 @@ export async function handleSaveConfiguration(request, env) {
 
 		const { name, devices } = body;
 
-		// 檢查是否已存在相同名稱的配置
+		// 檢查是否已存在相同名稱的配置（不限制 user_id）
 		const existing = await env.DB
-			.prepare("SELECT id FROM device_configurations WHERE user_id = ? AND name = ?")
-			.bind(userId, name)
+			.prepare("SELECT id FROM device_configurations WHERE name = ?")
+			.bind(name)
 			.first();
 
 		if (existing) {
-			// 更新現有配置
+			// 更新現有配置（任何人都可以更新）
 			await env.DB
 				.prepare(`
 					UPDATE device_configurations
 					SET devices = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
-					WHERE user_id = ? AND name = ?
+					WHERE name = ?
 				`)
-				.bind(JSON.stringify(devices), userId, name)
+				.bind(JSON.stringify(devices), name)
 				.run();
 		} else {
 			// 創建新配置
@@ -83,8 +83,8 @@ export async function handleLoadConfiguration(request, env) {
 		}
 
 		const config = await env.DB
-			.prepare("SELECT devices FROM device_configurations WHERE user_id = ? AND name = ?")
-			.bind(userId, name)
+			.prepare("SELECT devices FROM device_configurations WHERE name = ?")
+			.bind(name)
 			.first();
 
 		if (!config) {
@@ -146,8 +146,8 @@ export async function handleDeleteConfiguration(request, env) {
 		}
 
 		const result = await env.DB
-			.prepare("DELETE FROM device_configurations WHERE user_id = ? AND name = ?")
-			.bind(userId, name)
+			.prepare("DELETE FROM device_configurations WHERE name = ?")
+			.bind(name)
 			.run();
 
 		if (result.changes === 0) {
