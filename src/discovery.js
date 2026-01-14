@@ -229,9 +229,22 @@ export async function handleGetConfigurations(request, env) {
 	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
 
 	try {
+		// 獲取所有配置並關聯用戶資訊
 		const configs = await env.DB
-			.prepare("SELECT name, created_at, updated_at FROM device_configurations WHERE user_id = ? ORDER BY updated_at DESC")
-			.bind(userId)
+			.prepare(`
+				SELECT 
+					dc.id,
+					dc.user_id,
+					dc.name,
+					dc.devices,
+					dc.created_at,
+					dc.updated_at,
+					u.chinese_name,
+					u.name as user_name
+				FROM device_configurations dc
+				LEFT JOIN users u ON dc.user_id = u.id
+				ORDER BY dc.updated_at DESC
+			`)
 			.all();
 
 		return jsonResponse({ configurations: configs.results }, 200, request);
