@@ -6,7 +6,7 @@ import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils
 import { handleLogin, handleMe, handleLogout, handleRegister } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
-import { handleGetDevices, handleAddDevice, handleDeleteDevice, handleUpdateDevice, handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
+import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -72,7 +72,6 @@ const routes = {
 		"/api/employees": handleEmployees,
 		"/api/working-staff": handleWorkingStaff,
 		"/api/attendance/month": getMonth,
-		"/api/devices": handleGetDevices,
 		"/api/configurations": handleGetConfigurations,
 		"/api/configurations/load": handleLoadConfiguration,
 	},
@@ -86,15 +85,12 @@ const routes = {
 			return mod.devManualPunch(req, env);
 		},
 		"/api/simple-punch": handleSimplePunch,
-		"/api/devices": handleAddDevice,
 		"/api/configurations": handleSaveConfiguration,
 	},
 	PUT: {
-		"/api/devices": handleUpdateDevice,
 		"/api/attendance/period": updatePeriodName,
 	},
 	DELETE: {
-		"/api/devices": handleDeleteDevice,
 		"/api/configurations": handleDeleteConfiguration,
 	},
 };
