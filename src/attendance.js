@@ -121,23 +121,51 @@ export async function checkOut(request, env) {
 		const now = new Date();
 		const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
 		const today = taipeiTime.toISOString().slice(0, 10);
-		// 先查詢今天該 period 是否有紀錄
+		const currentHour = taipeiTime.getHours();
+
+		// 跨日邏輯：如果在凌晨 0-5 點打卡，檢查前一天是否有未完成的打卡記錄
+		let targetDate = today;
+		let isOvernightCheckOut = false;
+
+		if (currentHour >= 0 && currentHour < 5) {
+			// 計算前一天的日期
+			const yesterday = new Date(taipeiTime);
+			yesterday.setDate(yesterday.getDate() - 1);
+			const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+			// 查詢前一天該 period 是否有未完成的打卡記錄（有上班但沒下班）
+			const yesterdayRecord = await env.DB.prepare(`
+				SELECT id, check_in_time, check_out_time FROM attendance 
+				WHERE user_id = ? AND work_date = ? AND period = ?
+			`).bind(user_id, yesterdayStr, period).first();
+
+			// 如果前一天有上班記錄但沒有下班記錄，則視為跨日班次
+			if (yesterdayRecord && yesterdayRecord.check_in_time && !yesterdayRecord.check_out_time) {
+				targetDate = yesterdayStr;
+				isOvernightCheckOut = true;
+			}
+		}
+
+		// 先查詢目標日期該 period 是否有紀錄
 		const record = await env.DB.prepare(`
-			SELECT id FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
-		`).bind(user_id, today, period).first();
+			SELECT id, check_in_time FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?
+		`).bind(user_id, targetDate, period).first();
+
 		if (record) {
 			// 有紀錄就更新 check_out_time
 			await env.DB.prepare(`
 				UPDATE attendance SET check_out_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE user_id = ? AND work_date = ? AND period = ?
-			`).bind(user_id, today, period).run();
-			return jsonResponse({ message: '補下班打卡成功（已更新）' }, 200, request);
+			`).bind(user_id, targetDate, period).run();
+
+			const message = isOvernightCheckOut ? '跨日下班打卡成功' : '補下班打卡成功（已更新）';
+			return jsonResponse({ message }, 200, request);
 		} else {
 			// 沒有就插入新紀錄（只設 check_out_time）
 			await env.DB.prepare(`
 				INSERT INTO attendance (user_id, work_date, period, check_out_time)
 				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
-			`).bind(user_id, today, period).run();
+			`).bind(user_id, targetDate, period).run();
 			return jsonResponse({ message: '下班打卡成功' }, 200, request);
 		}
 	} catch (err) {

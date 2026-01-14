@@ -81,6 +81,10 @@ const routes = {
 		"/api/logout": handleLogout,
 		"/api/register": handleRegister,
 		"/api/manual-punch": handleManualPunch,
+		"/api/devtools/manual-punch": async (req, env) => {
+			const mod = await import('./attendance.js');
+			return mod.devManualPunch(req, env);
+		},
 		"/api/simple-punch": handleSimplePunch,
 		"/api/devices": handleAddDevice,
 		"/api/configurations": handleSaveConfiguration,
@@ -109,6 +113,10 @@ export default {
 		}
 		if (request.method === 'POST' && url.pathname === '/api/attendance/check-out') {
 			return checkOut(request, env);
+		}
+		if (request.method === 'GET' && url.pathname === '/api/devtools/attendance') {
+			const mod = await import('./attendance.js');
+			return mod.devGetAttendance(request, env);
 		}
 		if (request.method === 'GET' && url.pathname === '/api/attendance/today') {
 			return getToday(request, env);
