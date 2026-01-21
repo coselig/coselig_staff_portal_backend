@@ -39,7 +39,7 @@ export async function handleGetCurrentUser(request, env) {
 		const user = await env.DB
 			.prepare(`
 				SELECT id, name, chinese_name, email, role, job_title, 
-				       phone, address, bank_account, is_active, created_at
+				       phone, address, bank_account, is_active, theme_mode, created_at
 				FROM users WHERE id = ?
 			`)
 			.bind(userId)
@@ -155,6 +155,33 @@ export async function handleUpdateCurrentUser(request, env) {
 
 	} catch (err) {
 		console.error('Update current user error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新用戶主題模式
+export async function handleUpdateThemeMode(request, env) {
+	const userId = await getCurrentUserId(request, env);
+	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
+
+	try {
+		const { theme_mode } = await request.json();
+
+		// 驗證 theme_mode 值
+		const validModes = ['light', 'dark', 'system'];
+		if (!validModes.includes(theme_mode)) {
+			return jsonResponse({ error: "Invalid theme mode. Must be 'light', 'dark', or 'system'" }, 400, request);
+		}
+
+		await env.DB
+			.prepare("UPDATE users SET theme_mode = ? WHERE id = ?")
+			.bind(theme_mode, userId)
+			.run();
+
+		return jsonResponse({ ok: true, message: "Theme mode updated successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Update theme mode error:', err);
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }

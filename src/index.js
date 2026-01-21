@@ -7,7 +7,7 @@ import { handleLogin, handleMe, handleLogout, handleRegister } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
-import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser } from './users.js';
+import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -93,6 +93,7 @@ const routes = {
 	PUT: {
 		"/api/attendance/period": updatePeriodName,
 		"/api/users/me": handleUpdateCurrentUser,
+		"/api/users/theme-mode": handleUpdateThemeMode,
 	},
 	DELETE: {
 		"/api/configurations": handleDeleteConfiguration,
