@@ -72,4 +72,12 @@ echo ======================================
 echo 部署成功！版本: !VERSION! (Build #!BUILD_NUMBER!)
 echo 訪問: https://employeeservice.coseligtest.workers.dev
 echo ======================================
+
+echo.
+echo 更新版本號...
+set /a NEXT_BUILD_NUMBER=!BUILD_NUMBER! + 1
+set NEXT_VERSION=!VERSION!+!NEXT_BUILD_NUMBER!
+powershell -NoProfile -Command "(Get-Content '%PUBSPEC%') -replace '^version:\s*\S+', 'version: !NEXT_VERSION!' | Set-Content '%PUBSPEC%'"
+echo 下次部署版本將為: !NEXT_VERSION!
+
 pause
