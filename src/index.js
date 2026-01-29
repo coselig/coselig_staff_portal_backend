@@ -3,7 +3,7 @@
  */
 
 import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils.js';
-import { handleLogin, handleMe, handleLogout, handleRegister } from './auth.js';
+import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
@@ -82,6 +82,7 @@ const routes = {
 		"/api/login": handleLogin,
 		"/api/logout": handleLogout,
 		"/api/register": handleRegister,
+		"/api/google-login": handleGoogleLogin,
 		"/api/manual-punch": handleManualPunch,
 		"/api/devtools/manual-punch": async (req, env) => {
 			const mod = await import('./attendance.js');

@@ -1,5 +1,63 @@
 import { jsonResponse, generateSessionId, setCookie, corsHeaders } from './utils.js';
 
+export async function handleGoogleLogin(request, env) {
+	const body = await request.json().catch(() => null);
+	if (!body?.id_token) {
+		return jsonResponse({ error: "Missing id_token" }, 400, request);
+	}
+	const { id_token } = body;
+
+	// 驗證 Google ID Token
+	const googleResponse = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`);
+	if (!googleResponse.ok) {
+		return jsonResponse({ error: "Invalid Google token" }, 401, request);
+	}
+	const googleUser = await googleResponse.json();
+
+	// 檢查是否為允許的域名 (例如 coselig.com)
+	if (!googleUser.email.endsWith('@coselig.com')) {
+		return jsonResponse({ error: "Only coselig.com emails are allowed" }, 403, request);
+	}
+
+	// 查找或創建用戶
+	let user = await env.DB
+		.prepare("SELECT id, name, email, role FROM users WHERE email = ?")
+		.bind(googleUser.email)
+		.first();
+
+	if (!user) {
+		// 自動註冊新用戶
+		const insertResult = await env.DB
+			.prepare("INSERT INTO users (name, email, role) VALUES (?, ?, 'employee')")
+			.bind(googleUser.name, googleUser.email)
+			.run();
+		user = {
+			id: insertResult.meta.last_row_id,
+			name: googleUser.name,
+			email: googleUser.email,
+			role: 'employee'
+		};
+	}
+
+	// 創建 session
+	const sessionId = generateSessionId();
+	const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
+	await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
+	await env.DB
+		.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
+		.bind(sessionId, user.id, expires)
+		.run();
+
+	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } }), {
+		status: 200,
+		headers: {
+			...corsHeaders(request),
+			"Content-Type": "application/json",
+			"Set-Cookie": setCookie("session_id", sessionId, 30 * 24 * 3600),
+		},
+	});
+}
+
 export async function handleLogin(request, env) {
 	const body = await request.json().catch(() => null);
 	if ((!body?.email && !body?.name) || !body?.password) {
