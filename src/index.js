@@ -144,18 +144,37 @@ export default {
 				newUrl.pathname = '/index.html';
 				assetRequest = new Request(newUrl, request);
 			}
+
+			// 對於 version.json，使用較短的緩存時間
+			const isVersionFile = url.pathname === '/version.json';
+
 			try {
-				return await getAssetFromKV(
+				const response = await getAssetFromKV(
 					{ request: assetRequest },
 					{
 						ASSET_NAMESPACE: env.STATIC_ASSETS,
 						cacheControl: {
-							browserTTL: 60 * 60 * 24 * 30,
-							edgeTTL: 60 * 60 * 24 * 30,
+							browserTTL: isVersionFile ? 60 : 60 * 60 * 24 * 30, // version.json 1分鐘，其他文件 30天
+							edgeTTL: isVersionFile ? 60 : 60 * 60 * 24 * 30,
 							bypassCache: false,
 						},
 					}
 				);
+
+				// 為 version.json 添加 no-cache 頭
+				if (isVersionFile) {
+					const newHeaders = new Headers(response.headers);
+					newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+					newHeaders.set('Pragma', 'no-cache');
+					newHeaders.set('Expires', '0');
+					return new Response(response.body, {
+						status: response.status,
+						statusText: response.statusText,
+						headers: newHeaders,
+					});
+				}
+
+				return response;
 			} catch (e) {
 				// SPA fallback: 如果找不到文件且不是 API 路由，返回 index.html
 				// 這樣前端路由（Flutter Router）就能接管並顯示正確的頁面
@@ -164,7 +183,7 @@ export default {
 						const indexUrl = new URL(request.url);
 						indexUrl.pathname = '/index.html';
 						const indexRequest = new Request(indexUrl, request);
-						return await getAssetFromKV(
+						const response = await getAssetFromKV(
 							{ request: indexRequest },
 							{
 								ASSET_NAMESPACE: env.STATIC_ASSETS,
@@ -175,6 +194,7 @@ export default {
 								},
 							}
 						);
+						return response;
 					} catch (indexError) {
 						// 如果連 index.html 都找不到，返回錯誤
 						return jsonResponse({ error: "Not Found" }, 404, request);
