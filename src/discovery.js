@@ -5,19 +5,32 @@ import { corsHeaders, jsonResponse } from './utils.js';
 // 獲取當前用戶 ID 的輔助函數
 async function getCurrentUserId(request, env) {
 	const cookie = request.headers.get("Cookie") || "";
+	console.log('getCurrentUserId - Cookie:', cookie);
 	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return null;
+	if (!match) {
+		console.log('getCurrentUserId - No session_id in cookie');
+		return null;
+	}
 
 	const sessionId = match[1];
+	console.log('getCurrentUserId - session_id:', sessionId);
 	const session = await env.DB
 		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
 		.bind(sessionId)
 		.first();
+	console.log('getCurrentUserId - session from DB:', session);
 
-	if (!session || new Date(session.expires_at) < new Date()) {
+	if (!session) {
+		console.log('getCurrentUserId - Session not found in DB');
 		return null;
 	}
 
+	if (new Date(session.expires_at) < new Date()) {
+		console.log('getCurrentUserId - Session expired:', session.expires_at, 'vs now:', new Date().toISOString());
+		return null;
+	}
+
+	console.log('getCurrentUserId - Valid session, user_id:', session.user_id);
 	return session.user_id;
 }
 

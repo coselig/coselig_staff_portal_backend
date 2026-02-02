@@ -8,10 +8,17 @@ export function corsHeaders(request) {
 		"https://staff.coselig.com",
 		"https://staff-portal.coseligtest.workers.dev",
 		"https://9b3a7fe9.coselig-staff-portal-frontend.pages.dev",
+		"https://employeeservice.coseligtest.workers.dev",
 	];
 
 	let origin = request.headers.get("Origin");
-	if (!origin || origin === "*" || !allowedOrigins.includes(origin)) {
+
+	// 如果沒有 Origin 或是同源請求，不需要 CORS headers
+	if (!origin) {
+		return {};
+	}
+
+	if (!allowedOrigins.includes(origin)) {
 		origin = allowedOrigins[0];  // 預設使用第一個允許的來源
 	}
 	return {
@@ -21,7 +28,6 @@ export function corsHeaders(request) {
 		"Access-Control-Allow-Credentials": "true",
 	};
 }
-
 export function jsonResponse(data, status = 200, request) {
 	// 保證 request 不為 undefined
 	return new Response(JSON.stringify(data), {
@@ -38,5 +44,6 @@ export function generateSessionId() {
 }
 
 export function setCookie(name, value, maxAge = 3600) {
-	return `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; SameSite=None; Secure`;
+	// 跨域 AJAX 請求需要 SameSite=None
+	return `${name}=${value}; Path=/; Max-Age=${maxAge}; SameSite=None; Secure`;
 }

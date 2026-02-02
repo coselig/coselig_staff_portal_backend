@@ -70,6 +70,9 @@ export async function handleGoogleLogin(request, env) {
 		.bind(googleUser.email)
 		.first();
 
+	console.log('Existing user from DB:', user);
+	console.log('User ID type:', typeof user?.id, 'value:', user?.id);
+
 	if (!user) {
 		// 自動註冊新用戶
 		console.log('Creating new user:', googleUser.name, googleUser.email);
@@ -80,19 +83,23 @@ export async function handleGoogleLogin(request, env) {
 			.bind(googleUser.name, googleUser.email, randomPassword)
 			.run();
 
-		console.log('Insert result:', insertResult);
+		console.log('Insert result:', JSON.stringify(insertResult));
+		console.log('Insert meta:', JSON.stringify(insertResult.meta));
 
-		if (insertResult.success && insertResult.meta.last_row_id) {
-			user = {
-				id: insertResult.meta.last_row_id,
-				name: googleUser.name,
-				email: googleUser.email,
-				role: 'employee'
-			};
+		// 直接從資料庫查詢剛插入的用戶，確保獲得正確的 ID
+		const newUser = await env.DB
+			.prepare("SELECT id, name, email, role FROM users WHERE email = ?")
+			.bind(googleUser.email)
+			.first();
+
+		console.log('New user from DB:', newUser);
+
+		if (newUser && newUser.id > 0) {
+			user = newUser;
 			console.log('Created user with ID:', user.id);
 		} else {
-			console.error('Failed to insert user, result:', insertResult);
-			return jsonResponse({ error: "Failed to create user" }, 500, request);
+			console.error('Failed to get valid user ID, newUser:', newUser);
+			return jsonResponse({ error: "Failed to create user with valid ID" }, 500, request);
 		}
 	}
 
@@ -160,14 +167,22 @@ export async function handleLogin(request, env) {
 
 export async function handleMe(request, env) {
 	const cookie = request.headers.get("Cookie") || "";
+	console.log('handleMe - Cookie header:', cookie);
+	console.log('handleMe - All headers:', JSON.stringify([...request.headers.entries()]));
 	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
+	if (!match) {
+		console.log('handleMe - No session_id found in cookie');
+		return jsonResponse({ error: "Not logged in" }, 401, request);
+	}
 	const sessionId = match[1];
+	console.log('handleMe - Found session_id:', sessionId);
 	const session = await env.DB
 		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
 		.bind(sessionId)
 		.first();
+	console.log('handleMe - Session from DB:', session);
 	if (!session || new Date(session.expires_at) < new Date()) {
+		console.log('handleMe - Session expired or not found');
 		return jsonResponse({ error: "Session expired" }, 401, request);
 	}
 	const user = await env.DB
