@@ -20,16 +20,19 @@ export async function handleGoogleLogin(request, env) {
 		if (tokenParts.length === 3) {
 			// JWT payload 是 base64url 編碼的，需要轉換為 base64
 			let payloadBase64 = tokenParts[1].replace(/-/g, '+').replace(/_/g, '/');
-			console.log('Payload base64 before padding:', payloadBase64.substring(0, 50) + '...');
 
 			// 添加填充
 			while (payloadBase64.length % 4) {
 				payloadBase64 += '=';
 			}
-			console.log('Payload base64 after padding:', payloadBase64.substring(0, 50) + '...');
 
-			// 使用 Cloudflare Workers 的 atob 函數
-			const decodedPayload = atob(payloadBase64);
+			// 使用 Uint8Array + TextDecoder 正確解碼 UTF-8
+			const binaryString = atob(payloadBase64);
+			const bytes = new Uint8Array(binaryString.length);
+			for (let i = 0; i < binaryString.length; i++) {
+				bytes[i] = binaryString.charCodeAt(i);
+			}
+			const decodedPayload = new TextDecoder('utf-8').decode(bytes);
 			console.log('Decoded payload string:', decodedPayload.substring(0, 100) + '...');
 
 			const payload = JSON.parse(decodedPayload);
