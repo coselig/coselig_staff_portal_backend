@@ -5,6 +5,7 @@ rem If no args provided, version is read from ../coselig_staff_portal_frontend/p
 setlocal EnableDelayedExpansion
 
 set SCRIPT_DIR=%~dp0
+echo SCRIPT_DIR: !SCRIPT_DIR!
 set PUBSPEC=%SCRIPT_DIR%..\coselig_staff_portal_frontend\pubspec.yaml
 
 if "%~1"=="" (
@@ -32,12 +33,14 @@ echo.
 echo [1/4] 構建 Flutter 前端...
 cd /d %SCRIPT_DIR%..\coselig_staff_portal_frontend
 echo Running: flutter build web --release --build-name=!VERSION! --build-number=!BUILD_NUMBER!
-flutter build web --release --build-name=!VERSION! --build-number=!BUILD_NUMBER!
+flutter build web --release --build-name=!VERSION! --build-number=!BUILD_NUMBER! > build.log 2>&1
 if errorlevel 1 (
         echo 構建失敗！
+        type build.log
         pause
         exit /b 1
 )
+echo Step 1 completed
 
 echo.
 echo [2/4] 生成資產清單...
@@ -48,6 +51,7 @@ if errorlevel 1 (
         pause
         exit /b 1
 )
+echo Step 2 completed
 
 echo.
 echo [3/4] 上傳靜態文件到 KV...
@@ -57,6 +61,7 @@ if errorlevel 1 (
         pause
         exit /b 1
 )
+echo Step 3 completed
 
 echo.
 echo [4/4] 部署 Workers...
@@ -66,6 +71,7 @@ if errorlevel 1 (
         pause
         exit /b 1
 )
+echo Step 4 completed
 
 echo.
 echo ======================================
