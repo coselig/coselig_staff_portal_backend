@@ -9,10 +9,10 @@
 		"test": "vitest"
 	},
 	"devDependencies": {
-		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"@cloudflare/kv-asset-handler": "^0.4.0",
+		"@cloudflare/vitest-pool-workers": "^0.8.19",
 		"vitest": "~3.2.0",
-		"wrangler": "^4.54.0"
+		"wrangler": "^4.62.0"
 	},
 	"description": "",
 	"main": "test.js",
