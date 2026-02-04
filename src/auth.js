@@ -79,7 +79,7 @@ export async function handleGoogleLogin(request, env) {
 		// 為 Google 用戶生成一個隨機密碼（他們不會用到，但 schema 要求 NOT NULL）
 		const randomPassword = crypto.randomUUID();
 		const insertResult = await env.DB
-			.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'employee')")
+			.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'customer')")
 			.bind(googleUser.name, googleUser.email, randomPassword)
 			.run();
 
@@ -230,7 +230,7 @@ export async function handleRegister(request, env) {
 
 	// 新增用戶
 	const result = await env.DB
-		.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'employee')")
+		.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'customer')")
 		.bind(name, email, password)
 		.run();
 
