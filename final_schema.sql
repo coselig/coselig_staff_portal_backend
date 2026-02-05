@@ -9,6 +9,16 @@ CREATE TABLE IF NOT EXISTS device_configurations (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Quote configurations for the estimation system
+CREATE TABLE IF NOT EXISTS quote_configurations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  quote_data TEXT NOT NULL,
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Additional tables from Cloudflare metadata
 CREATE TABLE IF NOT EXISTS period_names (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
