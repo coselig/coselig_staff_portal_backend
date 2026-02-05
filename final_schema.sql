@@ -36,13 +36,15 @@ CREATE TABLE IF NOT EXISTS module_options (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   model TEXT NOT NULL UNIQUE,
   channel_count INTEGER NOT NULL,
-  is_dimmable INTEGER NOT NULL
+  is_dimmable INTEGER NOT NULL,
+  max_ampere_per_channel REAL NOT NULL DEFAULT 0.0,
+  max_ampere_total REAL NOT NULL DEFAULT 0.0
 );
 
--- Insert predefined module options
-INSERT OR IGNORE INTO module_options (model, channel_count, is_dimmable) VALUES
-('P210', 2, 1),
-('P404', 4, 1),
-('R410', 4, 0),
-('P805', 8, 1),
-('P305', 3, 1);
+-- Insert predefined module options with ampere values
+INSERT OR IGNORE INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total) VALUES
+('P210', 2, 1, 5.0, 10.0),
+('P404', 4, 1, 5.0, 20.0),
+('R410', 4, 0, 5.0, 20.0),
+('P805', 8, 1, 5.0, 40.0),
+('P305', 3, 1, 5.0, 15.0);
