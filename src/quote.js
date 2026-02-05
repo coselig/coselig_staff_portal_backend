@@ -174,3 +174,27 @@ export async function handleDeleteQuoteConfiguration(request, env) {
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
+
+// 獲取模組選項
+export async function handleGetModuleOptions(request, env) {
+	try {
+		const modules = await env.DB
+			.prepare("SELECT id, model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total FROM module_options ORDER BY model")
+			.all();
+
+		// 轉換資料格式以匹配前端期望
+		const moduleOptions = modules.results.map(module => ({
+			model: module.model,
+			channelCount: module.channel_count,
+			isDimmable: module.is_dimmable === 1,
+			maxAmperePerChannel: module.max_ampere_per_channel,
+			maxAmpereTotal: module.max_ampere_total,
+		}));
+
+		return jsonResponse({ moduleOptions }, 200, request);
+
+	} catch (err) {
+		console.error('Get module options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}

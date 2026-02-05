@@ -7,7 +7,7 @@ import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin 
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
-import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration } from './quote.js';
+import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
@@ -78,6 +78,7 @@ const routes = {
 		"/api/configurations/load": handleLoadConfiguration,
 		"/api/quote-configurations": handleGetQuoteConfigurations,
 		"/api/quote-configurations/load": handleLoadQuoteConfiguration,
+		"/api/module-options": handleGetModuleOptions,
 		"/api/users/me": handleGetCurrentUser,
 		"/api/users": handleGetAllUsers,
 	},
