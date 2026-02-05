@@ -7,7 +7,7 @@ import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin 
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
-import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions } from './quote.js';
+import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
@@ -95,15 +95,18 @@ const routes = {
 		"/api/simple-punch": handleSimplePunch,
 		"/api/configurations": handleSaveConfiguration,
 		"/api/quote-configurations": handleSaveQuoteConfiguration,
+		"/api/module-options": handleAddModuleOption,
 	},
 	PUT: {
 		"/api/attendance/period": updatePeriodName,
 		"/api/users/me": handleUpdateCurrentUser,
 		"/api/users/theme-mode": handleUpdateThemeMode,
+		"/api/module-options": handleUpdateModuleOption,
 	},
 	DELETE: {
 		"/api/configurations": handleDeleteConfiguration,
 		"/api/quote-configurations": handleDeleteQuoteConfiguration,
+		"/api/module-options": handleDeleteModuleOption,
 	},
 };
 

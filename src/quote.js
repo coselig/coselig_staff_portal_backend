@@ -184,6 +184,7 @@ export async function handleGetModuleOptions(request, env) {
 
 		// 轉換資料格式以匹配前端期望
 		const moduleOptions = modules.results.map(module => ({
+			id: module.id,
 			model: module.model,
 			channelCount: module.channel_count,
 			isDimmable: module.is_dimmable === 1,
@@ -195,6 +196,152 @@ export async function handleGetModuleOptions(request, env) {
 
 	} catch (err) {
 		console.error('Get module options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 添加模組選項
+export async function handleAddModuleOption(request, env) {
+	try {
+		const body = await request.json().catch(() => null);
+		if (!body?.model || body.channelCount === undefined || body.maxAmperePerChannel === undefined || body.maxAmpereTotal === undefined) {
+			return jsonResponse({ error: "Missing required fields: model, channelCount, maxAmperePerChannel, maxAmpereTotal" }, 400, request);
+		}
+
+		const { model, channelCount, isDimmable = true, maxAmperePerChannel, maxAmpereTotal } = body;
+
+		// 檢查是否已存在相同型號
+		const existing = await env.DB
+			.prepare("SELECT id FROM module_options WHERE model = ?")
+			.bind(model)
+			.first();
+
+		if (existing) {
+			return jsonResponse({ error: "Module model already exists" }, 409, request);
+		}
+
+		await env.DB
+			.prepare(`
+				INSERT INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total)
+				VALUES (?, ?, ?, ?, ?)
+			`)
+			.bind(model, channelCount, isDimmable ? 1 : 0, maxAmperePerChannel, maxAmpereTotal)
+			.run();
+
+		return jsonResponse({ ok: true, message: "Module option added successfully" }, 201, request);
+
+	} catch (err) {
+		console.error('Add module option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新模組選項
+export async function handleUpdateModuleOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return jsonResponse({ error: "Module ID is required" }, 400, request);
+		}
+
+		const body = await request.json().catch(() => null);
+		if (!body) {
+			return jsonResponse({ error: "Request body is required" }, 400, request);
+		}
+
+		const { model, channelCount, isDimmable, maxAmperePerChannel, maxAmpereTotal } = body;
+
+		// 檢查模組是否存在
+		const existing = await env.DB
+			.prepare("SELECT id FROM module_options WHERE id = ?")
+			.bind(id)
+			.first();
+
+		if (!existing) {
+			return jsonResponse({ error: "Module option not found" }, 404, request);
+		}
+
+		// 如果更新型號，檢查是否與其他模組衝突
+		if (model) {
+			const duplicate = await env.DB
+				.prepare("SELECT id FROM module_options WHERE model = ? AND id != ?")
+				.bind(model, id)
+				.first();
+
+			if (duplicate) {
+				return jsonResponse({ error: "Module model already exists" }, 409, request);
+			}
+		}
+
+		// 構建更新語句
+		let updateFields = [];
+		let values = [];
+
+		if (model !== undefined) {
+			updateFields.push("model = ?");
+			values.push(model);
+		}
+		if (channelCount !== undefined) {
+			updateFields.push("channel_count = ?");
+			values.push(channelCount);
+		}
+		if (isDimmable !== undefined) {
+			updateFields.push("is_dimmable = ?");
+			values.push(isDimmable ? 1 : 0);
+		}
+		if (maxAmperePerChannel !== undefined) {
+			updateFields.push("max_ampere_per_channel = ?");
+			values.push(maxAmperePerChannel);
+		}
+		if (maxAmpereTotal !== undefined) {
+			updateFields.push("max_ampere_total = ?");
+			values.push(maxAmpereTotal);
+		}
+
+		if (updateFields.length === 0) {
+			return jsonResponse({ error: "No fields to update" }, 400, request);
+		}
+
+		values.push(id); // WHERE 條件
+
+		await env.DB
+			.prepare(`UPDATE module_options SET ${updateFields.join(", ")} WHERE id = ?`)
+			.bind(...values)
+			.run();
+
+		return jsonResponse({ ok: true, message: "Module option updated successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Update module option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 刪除模組選項
+export async function handleDeleteModuleOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return jsonResponse({ error: "Module ID is required" }, 400, request);
+		}
+
+		const result = await env.DB
+			.prepare("DELETE FROM module_options WHERE id = ?")
+			.bind(id)
+			.run();
+
+		if (result.changes === 0) {
+			return jsonResponse({ error: "Module option not found" }, 404, request);
+		}
+
+		return jsonResponse({ ok: true, message: "Module option deleted successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Delete module option error:', err);
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
