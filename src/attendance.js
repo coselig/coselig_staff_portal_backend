@@ -61,8 +61,8 @@ export async function handleManualPunch(request, env) {
 			// 插入
 			await env.DB
 				.prepare(`
-					INSERT INTO attendance (user_id, work_date, period, check_in_time, check_out_time)
-					VALUES (?, ?, ?, ?, ?)
+					INSERT INTO attendance (user_id, work_date, period, check_in_time, check_out_time, updated_at)
+					VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
 				`)
 				.bind(employee_id, date, period, checkIn, checkOut)
 				.run();
