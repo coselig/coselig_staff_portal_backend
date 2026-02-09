@@ -45,7 +45,7 @@ export async function handleSaveQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Missing required fields: name and quoteData" }, 400, request);
 		}
 
-		const { name, quoteData } = body;
+		const { name, quoteData, customerId } = body;
 
 		// 檢查是否已存在相同名稱的配置（不限制 user_id）
 		const existing = await env.DB
@@ -58,19 +58,19 @@ export async function handleSaveQuoteConfiguration(request, env) {
 			await env.DB
 				.prepare(`
 					UPDATE quote_configurations
-					SET quote_data = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+					SET quote_data = ?, customer_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 					WHERE name = ?
 				`)
-				.bind(JSON.stringify(quoteData), name)
+				.bind(JSON.stringify(quoteData), customerId || null, name)
 				.run();
 		} else {
 			// 創建新配置
 			await env.DB
 				.prepare(`
-					INSERT INTO quote_configurations (user_id, name, quote_data)
-					VALUES (?, ?, ?)
+					INSERT INTO quote_configurations (user_id, name, quote_data, customer_id)
+					VALUES (?, ?, ?, ?)
 				`)
-				.bind(userId, name, JSON.stringify(quoteData))
+				.bind(userId, name, JSON.stringify(quoteData), customerId || null)
 				.run();
 		}
 

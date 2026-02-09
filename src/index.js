@@ -9,6 +9,7 @@ import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodN
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
+import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -81,6 +82,7 @@ const routes = {
 		"/api/module-options": handleGetModuleOptions,
 		"/api/users/me": handleGetCurrentUser,
 		"/api/users": handleGetAllUsers,
+		"/api/customers": handleGetCustomers,
 	},
 	POST: {
 		"/api/login": handleLogin,
@@ -96,6 +98,7 @@ const routes = {
 		"/api/configurations": handleSaveConfiguration,
 		"/api/quote-configurations": handleSaveQuoteConfiguration,
 		"/api/module-options": handleAddModuleOption,
+		"/api/customers": handleCreateCustomer,
 	},
 	PUT: {
 		"/api/attendance/period": updatePeriodName,
@@ -143,6 +146,18 @@ export default {
 			const userIdMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
 			if (userIdMatch && request.method === 'GET') {
 				return await handleGetUserById(request, env, userIdMatch[1]);
+			}
+
+			// 處理動態路由 /api/customers/:id
+			const customerIdMatch = url.pathname.match(/^\/api\/customers\/(\d+)$/);
+			if (customerIdMatch) {
+				if (request.method === 'GET') {
+					return await handleGetCustomerById(request, env, customerIdMatch[1]);
+				} else if (request.method === 'PUT') {
+					return await handleUpdateCustomer(request, env, customerIdMatch[1]);
+				} else if (request.method === 'DELETE') {
+					return await handleDeleteCustomer(request, env, customerIdMatch[1]);
+				}
 			}
 
 			// 如果不是 API 路由，嘗試服務靜態文件
