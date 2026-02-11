@@ -29,35 +29,30 @@ export async function handleCreateCustomer(request, env) {
 	try {
 		const body = await request.json();
 		const {
-			name,
-			chinese_name,
 			company,
-			email,
-			phone,
-			address,
-			project_name,
-			project_address,
 			contact_person,
 			notes
 		} = body;
 
-		if (!name?.trim()) {
-			return jsonResponse({ error: "Customer name is required" }, 400, request);
+		// 檢查用戶是否已經有客戶記錄
+		const existingCustomer = await env.DB
+			.prepare("SELECT id FROM customers WHERE user_id = ?")
+			.bind(userId)
+			.first();
+
+		if (existingCustomer) {
+			return jsonResponse({ error: "Customer record already exists for this user" }, 409, request);
 		}
 
-		// 插入新客戶
+		// 插入新客戶（只包含客戶特有的字段）
 		const result = await env.DB
 			.prepare(`
 				INSERT INTO customers (
-					user_id, name, chinese_name, company, email, phone, address,
-					project_name, project_address, contact_person, notes
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+					user_id, company, contact_person, notes
+				) VALUES (?, ?, ?, ?)
 			`)
 			.bind(
-				userId, name.trim(), chinese_name?.trim(), company?.trim(),
-				email?.trim(), phone?.trim(), address?.trim(),
-				project_name?.trim(), project_address?.trim(),
-				contact_person?.trim(), notes?.trim()
+				userId, company?.trim(), contact_person?.trim(), notes?.trim()
 			)
 			.run();
 
@@ -81,12 +76,14 @@ export async function handleGetCustomers(request, env) {
 	try {
 		const customers = await env.DB
 			.prepare(`
-				SELECT id, user_id, name, chinese_name, company, email, phone, address,
-				       project_name, project_address, contact_person, notes, is_active,
-				       created_at, updated_at
-				FROM customers
-				WHERE user_id = ?
-				ORDER BY created_at DESC
+				SELECT
+					c.id, c.user_id, c.company, c.contact_person, c.notes, 
+					c.is_active, c.created_at, c.updated_at,
+					u.name, u.chinese_name, u.email, u.phone, u.address
+				FROM customers c
+				JOIN users u ON c.user_id = u.id
+				WHERE c.user_id = ?
+				ORDER BY c.created_at DESC
 			`)
 			.bind(userId)
 			.all();
@@ -107,11 +104,13 @@ export async function handleGetCustomerById(request, env, customerId) {
 	try {
 		const customer = await env.DB
 			.prepare(`
-				SELECT id, user_id, name, chinese_name, company, email, phone, address,
-				       project_name, project_address, contact_person, notes, is_active,
-				       created_at, updated_at
-				FROM customers
-				WHERE id = ? AND user_id = ?
+				SELECT
+					c.id, c.user_id, c.company, c.contact_person, c.notes, 
+					c.is_active, c.created_at, c.updated_at,
+					u.name, u.chinese_name, u.email, u.phone, u.address
+				FROM customers c
+				JOIN users u ON c.user_id = u.id
+				WHERE c.id = ? AND c.user_id = ?
 			`)
 			.bind(customerId, userId)
 			.first();
@@ -136,37 +135,22 @@ export async function handleUpdateCustomer(request, env, customerId) {
 	try {
 		const body = await request.json();
 		const {
-			name,
-			chinese_name,
 			company,
-			email,
-			phone,
-			address,
-			project_name,
-			project_address,
 			contact_person,
 			notes,
 			is_active
 		} = body;
 
-		if (!name?.trim()) {
-			return jsonResponse({ error: "Customer name is required" }, 400, request);
-		}
-
-		// 更新客戶
+		// 更新客戶（只更新客戶特有的字段）
 		await env.DB
 			.prepare(`
 				UPDATE customers
-				SET name = ?, chinese_name = ?, company = ?, email = ?, phone = ?, address = ?,
-				    project_name = ?, project_address = ?, contact_person = ?, notes = ?,
-				    is_active = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+				SET company = ?, contact_person = ?, notes = ?, is_active = ?,
+				    updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE id = ? AND user_id = ?
 			`)
 			.bind(
-				name.trim(), chinese_name?.trim(), company?.trim(),
-				email?.trim(), phone?.trim(), address?.trim(),
-				project_name?.trim(), project_address?.trim(),
-				contact_person?.trim(), notes?.trim(),
+				company?.trim(), contact_person?.trim(), notes?.trim(),
 				is_active ? 1 : 0, customerId, userId
 			)
 			.run();

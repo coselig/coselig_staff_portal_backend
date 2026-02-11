@@ -97,6 +97,12 @@ export async function handleGoogleLogin(request, env) {
 		if (newUser && newUser.id > 0) {
 			user = newUser;
 			console.log('Created user with ID:', user.id);
+
+			// 自動為 customer 角色用戶創建 customers 記錄
+			await env.DB
+				.prepare("INSERT INTO customers (user_id, name, email) VALUES (?, ?, ?)")
+				.bind(newUser.id, googleUser.name, googleUser.email)
+				.run();
 		} else {
 			console.error('Failed to get valid user ID, newUser:', newUser);
 			return jsonResponse({ error: "Failed to create user with valid ID" }, 500, request);
@@ -235,6 +241,20 @@ export async function handleRegister(request, env) {
 		.run();
 
 	if (result.success) {
+		// 獲取剛創建的用戶 ID
+		const newUser = await env.DB
+			.prepare("SELECT id FROM users WHERE email = ?")
+			.bind(email)
+			.first();
+
+		if (newUser) {
+			// 自動為 customer 角色用戶創建 customers 記錄
+			await env.DB
+				.prepare("INSERT INTO customers (user_id, name, email) VALUES (?, ?, ?)")
+				.bind(newUser.id, name, email)
+				.run();
+		}
+
 		return jsonResponse({ ok: true, message: "User registered successfully" }, 201, request);
 	} else {
 		return jsonResponse({ error: "Failed to register user" }, 500, request);

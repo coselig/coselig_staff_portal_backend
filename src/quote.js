@@ -45,7 +45,7 @@ export async function handleSaveQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Missing required fields: name and quoteData" }, 400, request);
 		}
 
-		const { name, quoteData, customerId } = body;
+		const { name, quoteData, customerId, projectName, projectAddress } = body;
 
 		// 檢查是否已存在相同名稱的配置（不限制 user_id）
 		const existing = await env.DB
@@ -58,19 +58,19 @@ export async function handleSaveQuoteConfiguration(request, env) {
 			await env.DB
 				.prepare(`
 					UPDATE quote_configurations
-					SET quote_data = ?, customer_id = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+					SET quote_data = ?, customer_id = ?, project_name = ?, project_address = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 					WHERE name = ?
 				`)
-				.bind(JSON.stringify(quoteData), customerId || null, name)
+				.bind(JSON.stringify(quoteData), customerId || null, projectName || null, projectAddress || null, name)
 				.run();
 		} else {
 			// 創建新配置
 			await env.DB
 				.prepare(`
-					INSERT INTO quote_configurations (user_id, name, quote_data, customer_id)
-					VALUES (?, ?, ?, ?)
+					INSERT INTO quote_configurations (user_id, name, quote_data, customer_id, project_name, project_address)
+					VALUES (?, ?, ?, ?, ?, ?)
 				`)
-				.bind(userId, name, JSON.stringify(quoteData), customerId || null)
+				.bind(userId, name, JSON.stringify(quoteData), customerId || null, projectName || null, projectAddress || null)
 				.run();
 		}
 
@@ -119,7 +119,7 @@ export async function handleGetQuoteConfigurations(request, env) {
 	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
 
 	try {
-		// 獲取所有配置並關聯用戶資訊
+		// 獲取所有配置並關聯用戶資訊和客戶資訊
 		const configs = await env.DB
 			.prepare(`
 				SELECT
@@ -127,12 +127,20 @@ export async function handleGetQuoteConfigurations(request, env) {
 					qc.user_id,
 					qc.name,
 					qc.quote_data,
+					qc.customer_id,
+					qc.project_name,
+					qc.project_address,
 					qc.created_at,
 					qc.updated_at,
 					u.chinese_name,
-					u.name as user_name
+					u.name as user_name,
+					cu.name as customer_name,
+					cu.chinese_name as customer_chinese_name,
+					c.company as customer_company
 				FROM quote_configurations qc
 				LEFT JOIN users u ON qc.user_id = u.id
+				LEFT JOIN customers c ON qc.customer_id = c.id
+				LEFT JOIN users cu ON c.user_id = cu.id
 				ORDER BY qc.updated_at DESC
 			`)
 			.all();
