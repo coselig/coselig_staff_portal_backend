@@ -68,25 +68,48 @@ export async function handleCreateCustomer(request, env) {
 	}
 }
 
-// 獲取所有客戶（當前用戶的）
+// 獲取所有客戶（員工/管理員看到全部，客戶只看到自己的）
 export async function handleGetCustomers(request, env) {
 	const userId = await getCurrentUserId(request, env);
 	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
 
 	try {
-		const customers = await env.DB
-			.prepare(`
-				SELECT
-					c.id, c.user_id, c.company, c.contact_person, c.notes, 
-					c.is_active, c.created_at, c.updated_at,
-					u.name, u.chinese_name, u.email, u.phone, u.address
-				FROM customers c
-				JOIN users u ON c.user_id = u.id
-				WHERE c.user_id = ?
-				ORDER BY c.created_at DESC
-			`)
+		// 檢查當前用戶角色
+		const user = await env.DB
+			.prepare("SELECT role FROM users WHERE id = ?")
 			.bind(userId)
-			.all();
+			.first();
+
+		let customers;
+		if (user && user.role !== 'customer') {
+			// 員工/管理員：返回所有客戶
+			customers = await env.DB
+				.prepare(`
+					SELECT
+						c.id, c.user_id, c.company, c.contact_person, c.notes, 
+						c.is_active, c.created_at, c.updated_at,
+						u.name, u.chinese_name, u.email, u.phone, u.address
+					FROM customers c
+					JOIN users u ON c.user_id = u.id
+					ORDER BY c.created_at DESC
+				`)
+				.all();
+		} else {
+			// 客戶：只返回自己的
+			customers = await env.DB
+				.prepare(`
+					SELECT
+						c.id, c.user_id, c.company, c.contact_person, c.notes, 
+						c.is_active, c.created_at, c.updated_at,
+						u.name, u.chinese_name, u.email, u.phone, u.address
+					FROM customers c
+					JOIN users u ON c.user_id = u.id
+					WHERE c.user_id = ?
+					ORDER BY c.created_at DESC
+				`)
+				.bind(userId)
+				.all();
+		}
 
 		return jsonResponse({ customers: customers.results }, 200, request);
 
