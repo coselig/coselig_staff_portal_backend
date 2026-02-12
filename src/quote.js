@@ -370,7 +370,7 @@ export async function handleDeleteModuleOption(request, env) {
 export async function handleGetFixtureTypeOptions(request, env) {
 	try {
 		const types = await env.DB
-			.prepare("SELECT id, type, quantity_label, unit_label, is_meter_based, price FROM fixture_type_options ORDER BY id")
+			.prepare("SELECT id, type, quantity_label, unit_label, is_meter_based, price, default_unit_watt FROM fixture_type_options ORDER BY id")
 			.all();
 
 		const fixtureTypeOptions = types.results.map(t => ({
@@ -380,6 +380,7 @@ export async function handleGetFixtureTypeOptions(request, env) {
 			unitLabel: t.unit_label,
 			isMeterBased: t.is_meter_based === 1,
 			price: t.price ?? 0.0,
+			defaultUnitWatt: t.default_unit_watt ?? 0,
 		}));
 
 		return jsonResponse({ fixtureTypeOptions }, 200, request);
@@ -398,7 +399,7 @@ export async function handleAddFixtureTypeOption(request, env) {
 			return jsonResponse({ error: "Missing required field: type" }, 400, request);
 		}
 
-		const { type, quantityLabel = '燈具數量', unitLabel = '每顆瓦數 (W)', isMeterBased = false, price = 0.0 } = body;
+		const { type, quantityLabel = '燈具數量', unitLabel = '每顆瓦數 (W)', isMeterBased = false, price = 0.0, defaultUnitWatt = 0 } = body;
 
 		const existing = await env.DB
 			.prepare("SELECT id FROM fixture_type_options WHERE type = ?")
@@ -411,10 +412,10 @@ export async function handleAddFixtureTypeOption(request, env) {
 
 		await env.DB
 			.prepare(`
-				INSERT INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based, price)
-				VALUES (?, ?, ?, ?, ?)
+				INSERT INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based, price, default_unit_watt)
+				VALUES (?, ?, ?, ?, ?, ?)
 			`)
-			.bind(type, quantityLabel, unitLabel, isMeterBased ? 1 : 0, price)
+			.bind(type, quantityLabel, unitLabel, isMeterBased ? 1 : 0, price, defaultUnitWatt)
 			.run();
 
 		return jsonResponse({ ok: true, message: "Fixture type option added successfully" }, 201, request);
@@ -482,6 +483,10 @@ export async function handleUpdateFixtureTypeOption(request, env) {
 		if (body.price !== undefined) {
 			updateFields.push("price = ?");
 			values.push(body.price);
+		}
+		if (body.defaultUnitWatt !== undefined) {
+			updateFields.push("default_unit_watt = ?");
+			values.push(body.defaultUnitWatt);
 		}
 
 		if (updateFields.length === 0) {
