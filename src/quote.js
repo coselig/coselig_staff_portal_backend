@@ -187,7 +187,7 @@ export async function handleDeleteQuoteConfiguration(request, env) {
 export async function handleGetModuleOptions(request, env) {
 	try {
 		const modules = await env.DB
-			.prepare("SELECT id, model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total FROM module_options ORDER BY model")
+			.prepare("SELECT id, model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price FROM module_options ORDER BY model")
 			.all();
 
 		// 轉換資料格式以匹配前端期望
@@ -198,6 +198,7 @@ export async function handleGetModuleOptions(request, env) {
 			isDimmable: module.is_dimmable === 1,
 			maxAmperePerChannel: module.max_ampere_per_channel,
 			maxAmpereTotal: module.max_ampere_total,
+			price: module.price,
 		}));
 
 		return jsonResponse({ moduleOptions }, 200, request);
@@ -216,7 +217,7 @@ export async function handleAddModuleOption(request, env) {
 			return jsonResponse({ error: "Missing required fields: model, channelCount, maxAmperePerChannel, maxAmpereTotal" }, 400, request);
 		}
 
-		const { model, channelCount, isDimmable = true, maxAmperePerChannel, maxAmpereTotal } = body;
+		const { model, channelCount, isDimmable = true, maxAmperePerChannel, maxAmpereTotal, price = 0 } = body;
 
 		// 檢查是否已存在相同型號
 		const existing = await env.DB
@@ -230,10 +231,10 @@ export async function handleAddModuleOption(request, env) {
 
 		await env.DB
 			.prepare(`
-				INSERT INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total)
-				VALUES (?, ?, ?, ?, ?)
+				INSERT INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price)
+				VALUES (?, ?, ?, ?, ?, ?)
 			`)
-			.bind(model, channelCount, isDimmable ? 1 : 0, maxAmperePerChannel, maxAmpereTotal)
+			.bind(model, channelCount, isDimmable ? 1 : 0, maxAmperePerChannel, maxAmpereTotal, price)
 			.run();
 
 		return jsonResponse({ ok: true, message: "Module option added successfully" }, 201, request);
@@ -306,6 +307,10 @@ export async function handleUpdateModuleOption(request, env) {
 		if (maxAmpereTotal !== undefined) {
 			updateFields.push("max_ampere_total = ?");
 			values.push(maxAmpereTotal);
+		}
+		if (body.price !== undefined) {
+			updateFields.push("price = ?");
+			values.push(body.price);
 		}
 
 		if (updateFields.length === 0) {

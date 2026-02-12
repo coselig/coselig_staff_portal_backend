@@ -3,7 +3,7 @@ chcp 65001 | Out-Null
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-param([string]$version, [string]$buildNumber)
+# param([string]$version, [string]$buildNumber)
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pubspec = Join-Path $scriptDir "..\coselig_staff_portal_frontend\pubspec.yaml"
