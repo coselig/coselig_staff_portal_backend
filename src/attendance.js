@@ -72,6 +72,86 @@ export async function handleManualPunch(request, env) {
 	return jsonResponse({ message: '補打卡成功' }, 200, request);
 }
 
+// 員工自助補打卡（只能補自己的、只能補空缺的欄位）
+export async function handleEmployeeManualPunch(request, env) {
+	const cookie = request.headers.get("Cookie") || "";
+	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
+	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
+	const sessionId = match[1];
+	const session = await env.DB
+		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
+		.bind(sessionId)
+		.first();
+	if (!session || new Date(session.expires_at) < new Date()) {
+		return jsonResponse({ error: "Session expired" }, 401, request);
+	}
+
+	const body = await request.json().catch(() => null);
+	if (!body?.user_id || !body?.date || !body?.periods) {
+		return jsonResponse({ error: "Missing fields" }, 400, request);
+	}
+
+	const { user_id, date, periods } = body;
+
+	// 安全檢查：只能補自己的打卡
+	if (user_id.toString() !== session.user_id.toString()) {
+		return jsonResponse({ error: "只能補打自己的打卡記錄" }, 403, request);
+	}
+
+	// 檢查日期不能是未來
+	const now = new Date();
+	const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+	const today = taipeiTime.toISOString().slice(0, 10);
+	if (date > today) {
+		return jsonResponse({ error: "不能補打未來日期" }, 400, request);
+	}
+
+	for (const [period, times] of Object.entries(periods)) {
+		let checkIn = times.check_in;
+		let checkOut = times.check_out;
+
+		// 將 HH:mm 轉為完整的 datetime
+		if (checkIn) {
+			checkIn = `${date} ${checkIn}:00`;
+		}
+		if (checkOut) {
+			checkOut = `${date} ${checkOut}:00`;
+		}
+
+		// 檢查是否已有記錄
+		const existing = await env.DB
+			.prepare("SELECT id, check_in_time, check_out_time FROM attendance WHERE user_id = ? AND work_date = ? AND period = ?")
+			.bind(user_id, date, period)
+			.first();
+
+		if (existing) {
+			// 只能補空缺的欄位，不能覆蓋已有的資料
+			const finalCheckIn = existing.check_in_time || checkIn;
+			const finalCheckOut = existing.check_out_time || checkOut;
+
+			await env.DB
+				.prepare(`
+					UPDATE attendance
+					SET check_in_time = ?, check_out_time = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+					WHERE user_id = ? AND work_date = ? AND period = ?
+				`)
+				.bind(finalCheckIn, finalCheckOut, user_id, date, period)
+				.run();
+		} else {
+			// 插入新記錄
+			await env.DB
+				.prepare(`
+					INSERT INTO attendance (user_id, work_date, period, check_in_time, check_out_time, updated_at)
+					VALUES (?, ?, ?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
+				`)
+				.bind(user_id, date, period, checkIn, checkOut)
+				.run();
+		}
+	}
+
+	return jsonResponse({ message: '員工補打卡成功' }, 200, request);
+}
+
 export async function checkIn(request, env) {
 	try {
 		const body = await request.json().catch(() => null);

@@ -5,7 +5,7 @@
 import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils.js';
 import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
-import { handleManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
+import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
@@ -91,6 +91,7 @@ const routes = {
 		"/api/register": handleRegister,
 		"/api/google-login": handleGoogleLogin,
 		"/api/manual-punch": handleManualPunch,
+		"/api/employee-manual-punch": handleEmployeeManualPunch,
 		"/api/devtools/manual-punch": async (req, env) => {
 			const mod = await import('./attendance.js');
 			return mod.devManualPunch(req, env);
