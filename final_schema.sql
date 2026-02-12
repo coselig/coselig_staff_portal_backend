@@ -68,3 +68,20 @@ INSERT OR IGNORE INTO module_options (model, channel_count, is_dimmable, max_amp
 ('R410', 4, 0, 5.0, 20.0, 0.0),
 ('P805', 8, 1, 5.0, 40.0, 0.0),
 ('P305', 3, 1, 5.0, 15.0, 0.0);
+
+-- Fixture type options for the quotation system
+CREATE TABLE IF NOT EXISTS fixture_type_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  type TEXT NOT NULL UNIQUE,
+  quantity_label TEXT NOT NULL DEFAULT '燈具數量',
+  unit_label TEXT NOT NULL DEFAULT '每顆瓦數 (W)',
+  is_meter_based INTEGER NOT NULL DEFAULT 0
+);
+
+-- Insert predefined fixture type options
+INSERT OR IGNORE INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based) VALUES
+('軌道燈', '燈具數量', '每顆瓦數 (W)', 0),
+('燈帶', '米數', '每米瓦數 (W/m)', 1),
+('崁燈', '燈具數量', '每顆瓦數 (W)', 0),
+('射燈', '燈具數量', '每顆瓦數 (W)', 0),
+('吊燈', '燈具數量', '每顆瓦數 (W)', 0);

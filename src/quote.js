@@ -358,3 +358,164 @@ export async function handleDeleteModuleOption(request, env) {
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
+
+// ===== 燈具類型選項 CRUD =====
+
+// 獲取燈具類型選項
+export async function handleGetFixtureTypeOptions(request, env) {
+	try {
+		const types = await env.DB
+			.prepare("SELECT id, type, quantity_label, unit_label, is_meter_based FROM fixture_type_options ORDER BY id")
+			.all();
+
+		const fixtureTypeOptions = types.results.map(t => ({
+			id: t.id,
+			type: t.type,
+			quantityLabel: t.quantity_label,
+			unitLabel: t.unit_label,
+			isMeterBased: t.is_meter_based === 1,
+		}));
+
+		return jsonResponse({ fixtureTypeOptions }, 200, request);
+
+	} catch (err) {
+		console.error('Get fixture type options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 添加燈具類型選項
+export async function handleAddFixtureTypeOption(request, env) {
+	try {
+		const body = await request.json().catch(() => null);
+		if (!body?.type) {
+			return jsonResponse({ error: "Missing required field: type" }, 400, request);
+		}
+
+		const { type, quantityLabel = '燈具數量', unitLabel = '每顆瓦數 (W)', isMeterBased = false } = body;
+
+		const existing = await env.DB
+			.prepare("SELECT id FROM fixture_type_options WHERE type = ?")
+			.bind(type)
+			.first();
+
+		if (existing) {
+			return jsonResponse({ error: "Fixture type already exists" }, 409, request);
+		}
+
+		await env.DB
+			.prepare(`
+				INSERT INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based)
+				VALUES (?, ?, ?, ?)
+			`)
+			.bind(type, quantityLabel, unitLabel, isMeterBased ? 1 : 0)
+			.run();
+
+		return jsonResponse({ ok: true, message: "Fixture type option added successfully" }, 201, request);
+
+	} catch (err) {
+		console.error('Add fixture type option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新燈具類型選項
+export async function handleUpdateFixtureTypeOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return jsonResponse({ error: "Fixture type ID is required" }, 400, request);
+		}
+
+		const body = await request.json().catch(() => null);
+		if (!body) {
+			return jsonResponse({ error: "Request body is required" }, 400, request);
+		}
+
+		const existing = await env.DB
+			.prepare("SELECT id FROM fixture_type_options WHERE id = ?")
+			.bind(id)
+			.first();
+
+		if (!existing) {
+			return jsonResponse({ error: "Fixture type option not found" }, 404, request);
+		}
+
+		if (body.type) {
+			const duplicate = await env.DB
+				.prepare("SELECT id FROM fixture_type_options WHERE type = ? AND id != ?")
+				.bind(body.type, id)
+				.first();
+
+			if (duplicate) {
+				return jsonResponse({ error: "Fixture type already exists" }, 409, request);
+			}
+		}
+
+		let updateFields = [];
+		let values = [];
+
+		if (body.type !== undefined) {
+			updateFields.push("type = ?");
+			values.push(body.type);
+		}
+		if (body.quantityLabel !== undefined) {
+			updateFields.push("quantity_label = ?");
+			values.push(body.quantityLabel);
+		}
+		if (body.unitLabel !== undefined) {
+			updateFields.push("unit_label = ?");
+			values.push(body.unitLabel);
+		}
+		if (body.isMeterBased !== undefined) {
+			updateFields.push("is_meter_based = ?");
+			values.push(body.isMeterBased ? 1 : 0);
+		}
+
+		if (updateFields.length === 0) {
+			return jsonResponse({ error: "No fields to update" }, 400, request);
+		}
+
+		values.push(id);
+
+		await env.DB
+			.prepare(`UPDATE fixture_type_options SET ${updateFields.join(", ")} WHERE id = ?`)
+			.bind(...values)
+			.run();
+
+		return jsonResponse({ ok: true, message: "Fixture type option updated successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Update fixture type option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 刪除燈具類型選項
+export async function handleDeleteFixtureTypeOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return jsonResponse({ error: "Fixture type ID is required" }, 400, request);
+		}
+
+		const result = await env.DB
+			.prepare("DELETE FROM fixture_type_options WHERE id = ?")
+			.bind(id)
+			.run();
+
+		if (result.changes === 0) {
+			return jsonResponse({ error: "Fixture type option not found" }, 404, request);
+		}
+
+		return jsonResponse({ ok: true, message: "Fixture type option deleted successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Delete fixture type option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
