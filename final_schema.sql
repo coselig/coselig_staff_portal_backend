@@ -75,13 +75,14 @@ CREATE TABLE IF NOT EXISTS fixture_type_options (
   type TEXT NOT NULL UNIQUE,
   quantity_label TEXT NOT NULL DEFAULT '燈具數量',
   unit_label TEXT NOT NULL DEFAULT '每顆瓦數 (W)',
-  is_meter_based INTEGER NOT NULL DEFAULT 0
+  is_meter_based INTEGER NOT NULL DEFAULT 0,
+  price REAL NOT NULL DEFAULT 0.0
 );
 
 -- Insert predefined fixture type options
-INSERT OR IGNORE INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based) VALUES
-('軌道燈', '燈具數量', '每顆瓦數 (W)', 0),
-('燈帶', '米數', '每米瓦數 (W/m)', 1),
-('崁燈', '燈具數量', '每顆瓦數 (W)', 0),
-('射燈', '燈具數量', '每顆瓦數 (W)', 0),
-('吊燈', '燈具數量', '每顆瓦數 (W)', 0);
+INSERT OR IGNORE INTO fixture_type_options (type, quantity_label, unit_label, is_meter_based, price) VALUES
+('軌道燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0),
+('燈帶', '米數', '每米瓦數 (W/m)', 1, 0.0),
+('崁燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0),
+('射燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0),
+('吊燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0);
