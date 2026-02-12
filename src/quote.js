@@ -187,13 +187,14 @@ export async function handleDeleteQuoteConfiguration(request, env) {
 export async function handleGetModuleOptions(request, env) {
 	try {
 		const modules = await env.DB
-			.prepare("SELECT id, model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price FROM module_options ORDER BY model")
+			.prepare("SELECT id, model, brand, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price FROM module_options ORDER BY model")
 			.all();
 
 		// 轉換資料格式以匹配前端期望
 		const moduleOptions = modules.results.map(module => ({
 			id: module.id,
 			model: module.model,
+			brand: module.brand || '',
 			channelCount: module.channel_count,
 			isDimmable: module.is_dimmable === 1,
 			maxAmperePerChannel: module.max_ampere_per_channel,
@@ -217,7 +218,7 @@ export async function handleAddModuleOption(request, env) {
 			return jsonResponse({ error: "Missing required fields: model, channelCount, maxAmperePerChannel, maxAmpereTotal" }, 400, request);
 		}
 
-		const { model, channelCount, isDimmable = true, maxAmperePerChannel, maxAmpereTotal, price = 0 } = body;
+		const { model, brand = '', channelCount, isDimmable = true, maxAmperePerChannel, maxAmpereTotal, price = 0 } = body;
 
 		// 檢查是否已存在相同型號
 		const existing = await env.DB
@@ -231,10 +232,10 @@ export async function handleAddModuleOption(request, env) {
 
 		await env.DB
 			.prepare(`
-				INSERT INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price)
-				VALUES (?, ?, ?, ?, ?, ?)
+				INSERT INTO module_options (model, brand, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price)
+				VALUES (?, ?, ?, ?, ?, ?, ?)
 			`)
-			.bind(model, channelCount, isDimmable ? 1 : 0, maxAmperePerChannel, maxAmpereTotal, price)
+			.bind(model, brand, channelCount, isDimmable ? 1 : 0, maxAmperePerChannel, maxAmpereTotal, price)
 			.run();
 
 		return jsonResponse({ ok: true, message: "Module option added successfully" }, 201, request);
@@ -291,6 +292,10 @@ export async function handleUpdateModuleOption(request, env) {
 		if (model !== undefined) {
 			updateFields.push("model = ?");
 			values.push(model);
+		}
+		if (body.brand !== undefined) {
+			updateFields.push("brand = ?");
+			values.push(body.brand);
 		}
 		if (channelCount !== undefined) {
 			updateFields.push("channel_count = ?");

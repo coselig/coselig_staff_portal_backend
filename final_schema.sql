@@ -54,6 +54,7 @@ CREATE INDEX IF NOT EXISTS idx_quote_configurations_customer_user_id ON quote_co
 CREATE TABLE IF NOT EXISTS module_options (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   model TEXT NOT NULL UNIQUE,
+  brand TEXT NOT NULL DEFAULT '',
   channel_count INTEGER NOT NULL,
   is_dimmable INTEGER NOT NULL,
   max_ampere_per_channel REAL NOT NULL DEFAULT 0.0,
@@ -62,12 +63,12 @@ CREATE TABLE IF NOT EXISTS module_options (
 );
 
 -- Insert predefined module options with ampere values
-INSERT OR IGNORE INTO module_options (model, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price) VALUES
-('P210', 2, 1, 5.0, 10.0, 0.0),
-('P404', 4, 1, 5.0, 20.0, 0.0),
-('R410', 4, 0, 5.0, 20.0, 0.0),
-('P805', 8, 1, 5.0, 40.0, 0.0),
-('P305', 3, 1, 5.0, 15.0, 0.0);
+INSERT OR IGNORE INTO module_options (model, brand, channel_count, is_dimmable, max_ampere_per_channel, max_ampere_total, price) VALUES
+('P210', '', 2, 1, 5.0, 10.0, 0.0),
+('P404', '', 4, 1, 5.0, 20.0, 0.0),
+('R410', '', 4, 0, 5.0, 20.0, 0.0),
+('P805', '', 8, 1, 5.0, 40.0, 0.0),
+('P305', '', 3, 1, 5.0, 15.0, 0.0);
 
 -- Fixture type options for the quotation system
 CREATE TABLE IF NOT EXISTS fixture_type_options (
