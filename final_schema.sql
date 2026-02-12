@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS quote_configurations (
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   quote_data TEXT NOT NULL,
-  customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+  customer_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   project_name TEXT, -- 項目名稱 (quote-specific)
   project_address TEXT, -- 項目地址 (quote-specific)
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS _cf_METADATA (
 -- Create index for better query performance
 CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company);
-CREATE INDEX IF NOT EXISTS idx_quote_configurations_customer_id ON quote_configurations(customer_id);
+CREATE INDEX IF NOT EXISTS idx_quote_configurations_customer_user_id ON quote_configurations(customer_user_id);
 
 -- Module options for the quotation system
 CREATE TABLE IF NOT EXISTS module_options (

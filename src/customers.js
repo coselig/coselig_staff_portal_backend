@@ -192,10 +192,20 @@ export async function handleDeleteCustomer(request, env, customerId) {
 	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
 
 	try {
-		// 檢查是否有相關的報價配置
-		const quoteCount = await env.DB
-			.prepare("SELECT COUNT(*) as count FROM quote_configurations WHERE customer_id = ?")
+		// 先查詢該客戶的 user_id
+		const customer = await env.DB
+			.prepare("SELECT user_id FROM customers WHERE id = ?")
 			.bind(customerId)
+			.first();
+
+		if (!customer) {
+			return jsonResponse({ error: "Customer not found" }, 404, request);
+		}
+
+		// 檢查是否有相關的報價配置（用 customer_user_id 存的是 user_id）
+		const quoteCount = await env.DB
+			.prepare("SELECT COUNT(*) as count FROM quote_configurations WHERE customer_user_id = ?")
+			.bind(customer.user_id)
 			.first();
 
 		if (quoteCount.count > 0) {
