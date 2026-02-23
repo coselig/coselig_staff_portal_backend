@@ -7,7 +7,7 @@ import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin 
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration } from './discovery.js';
-import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption } from './quote.js';
+import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
@@ -81,6 +81,7 @@ const routes = {
 		"/api/quote-configurations/load": handleLoadQuoteConfiguration,
 		"/api/module-options": handleGetModuleOptions,
 		"/api/fixture-type-options": handleGetFixtureTypeOptions,
+		"/api/switch-options": handleGetSwitchOptions,
 		"/api/users/me": handleGetCurrentUser,
 		"/api/users": handleGetAllUsers,
 		"/api/customers": handleGetCustomers,
@@ -101,6 +102,7 @@ const routes = {
 		"/api/quote-configurations": handleSaveQuoteConfiguration,
 		"/api/module-options": handleAddModuleOption,
 		"/api/fixture-type-options": handleAddFixtureTypeOption,
+		"/api/switch-options": handleAddSwitchOption,
 		"/api/customers": handleCreateCustomer,
 	},
 	PUT: {
@@ -109,12 +111,14 @@ const routes = {
 		"/api/users/theme-mode": handleUpdateThemeMode,
 		"/api/module-options": handleUpdateModuleOption,
 		"/api/fixture-type-options": handleUpdateFixtureTypeOption,
+		"/api/switch-options": handleUpdateSwitchOption,
 	},
 	DELETE: {
 		"/api/configurations": handleDeleteConfiguration,
 		"/api/quote-configurations": handleDeleteQuoteConfiguration,
 		"/api/module-options": handleDeleteModuleOption,
 		"/api/fixture-type-options": handleDeleteFixtureTypeOption,
+		"/api/switch-options": handleDeleteSwitchOption,
 	},
 };
 

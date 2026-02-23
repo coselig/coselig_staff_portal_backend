@@ -1,3 +1,77 @@
+// ===== 開關選項 CRUD =====
+
+// 取得所有開關選項
+export async function handleGetSwitchOptions(request, env) {
+	try {
+		const switches = await env.DB
+			.prepare("SELECT id, name, count, price, location, created_at, updated_at FROM switch_options ORDER BY id")
+			.all();
+		return jsonResponse({ switchOptions: switches.results }, 200, request);
+	} catch (err) {
+		console.error('Get switch options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 新增開關選項
+export async function handleAddSwitchOption(request, env) {
+	try {
+		const body = await request.json();
+		if (!body?.name || typeof body.count !== 'number') {
+			return jsonResponse({ error: 'Missing required fields: name, count' }, 400, request);
+		}
+		const { name, count, price = 0.0, location = '' } = body;
+		await env.DB
+			.prepare("INSERT INTO switch_options (name, count, price, location) VALUES (?, ?, ?, ?)")
+			.bind(name, count, price, location)
+			.run();
+		return jsonResponse({ ok: true, message: 'Switch option added' }, 200, request);
+	} catch (err) {
+		console.error('Add switch option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新開關選項
+export async function handleUpdateSwitchOption(request, env) {
+	try {
+		const body = await request.json();
+		if (!body?.id) {
+			return jsonResponse({ error: 'Missing id' }, 400, request);
+		}
+		const { id, name, count, price = 0.0, location = '' } = body;
+		await env.DB
+			.prepare("UPDATE switch_options SET name = ?, count = ?, price = ?, location = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+			.bind(name, count, price, location, id)
+			.run();
+		return jsonResponse({ ok: true, message: 'Switch option updated' }, 200, request);
+	} catch (err) {
+		console.error('Update switch option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 刪除開關選項
+export async function handleDeleteSwitchOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+		if (!id) {
+			return jsonResponse({ error: 'Missing id' }, 400, request);
+		}
+		const result = await env.DB
+			.prepare("DELETE FROM switch_options WHERE id = ?")
+			.bind(id)
+			.run();
+		if (result.changes === 0) {
+			return jsonResponse({ error: 'Switch option not found' }, 404, request);
+		}
+		return jsonResponse({ ok: true, message: 'Switch option deleted' }, 200, request);
+	} catch (err) {
+		console.error('Delete switch option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
 // quote.js - 估價系統相關的 API 處理函數
 
 import { corsHeaders, jsonResponse } from './utils.js';

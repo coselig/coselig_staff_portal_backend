@@ -1,3 +1,13 @@
+-- Switch options for the quotation system
+CREATE TABLE IF NOT EXISTS switch_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 1,
+  price REAL NOT NULL DEFAULT 0.0,
+  location TEXT NOT NULL DEFAULT '',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 -- Updated schema based on Cloudflare D1 database
 
 CREATE TABLE IF NOT EXISTS device_configurations (
