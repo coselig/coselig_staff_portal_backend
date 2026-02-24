@@ -178,8 +178,16 @@ export default {
 				assetRequest = new Request(newUrl, request);
 			}
 
-			// 對於 version.json，使用較短的緩存時間
-			const isVersionFile = url.pathname === '/version.json';
+
+			// 需要 no-cache 的檔案
+			const noCacheFiles = [
+				'/index.html',
+				'/main.dart.js',
+				'/flutter_service_worker.js',
+				'/manifest.json',
+				'/version.json',
+			];
+			const isNoCacheFile = noCacheFiles.includes(url.pathname);
 
 			try {
 				const response = await getAssetFromKV(
@@ -187,15 +195,14 @@ export default {
 					{
 						ASSET_NAMESPACE: env.STATIC_ASSETS,
 						cacheControl: {
-							browserTTL: isVersionFile ? 60 : 60 * 60 * 24 * 30, // version.json 1分鐘，其他文件 30天
-							edgeTTL: isVersionFile ? 60 : 60 * 60 * 24 * 30,
+							browserTTL: isNoCacheFile ? 0 : 60 * 60 * 24 * 30,
+							edgeTTL: isNoCacheFile ? 0 : 60 * 60 * 24 * 30,
 							bypassCache: false,
 						},
 					}
 				);
 
-				// 為 version.json 添加 no-cache 頭
-				if (isVersionFile) {
+				if (isNoCacheFile) {
 					const newHeaders = new Headers(response.headers);
 					newHeaders.set('Cache-Control', 'no-cache, no-store, must-revalidate');
 					newHeaders.set('Pragma', 'no-cache');
