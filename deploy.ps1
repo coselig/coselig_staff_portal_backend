@@ -3,7 +3,11 @@ chcp 65001 | Out-Null
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
-# param([string]$version, [string]$buildNumber)
+# 若要直接在檔案內修改版本或 build number，可在此取消註解並設定：
+# $version = "0.2.0"
+# $buildNumber = "5"
+
+$wranglerVersion = "4.68.0"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pubspec = Join-Path $scriptDir "..\coselig_staff_portal_frontend\pubspec.yaml"
@@ -50,7 +54,8 @@ Write-Host ""
 Write-Host "[3/4] Uploading static files to KV..."
 $assetsPath = 'D:\workspace\coselig_staff_portal_backend\assets.json'
 Write-Host "assetsPath: $assetsPath"
-& npx wrangler kv bulk put $assetsPath --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
+Write-Host "Running: npm exec --package=wrangler@$wranglerVersion -- wrangler kv bulk put $assetsPath --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote"
+& npm exec --package=wrangler@$wranglerVersion -- wrangler kv bulk put $assetsPath --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Upload failed!"
     Read-Host "Press Enter to exit"
@@ -60,7 +65,8 @@ Write-Host "Step 3 completed"
 
 Write-Host ""
 Write-Host "[4/4] Deploying Workers..."
-& npx wrangler deploy
+Write-Host "Running: npm exec --package=wrangler@$wranglerVersion -- wrangler deploy"
+& npm exec --package=wrangler@$wranglerVersion -- wrangler deploy
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Deployment failed!"
     Read-Host "Press Enter to exit"

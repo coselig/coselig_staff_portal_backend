@@ -66,7 +66,7 @@ if errorlevel 1 (
 
 echo.
 echo [3/4] 上傳靜態文件到 KV...
-npx wrangler kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
+npm exec --package=wrangler@4.68.0 -- wrangler kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
 if errorlevel 1 (
     echo 上傳失敗！
     pause
@@ -75,7 +75,7 @@ if errorlevel 1 (
 
 echo.
 echo [4/4] 部署 Workers...
-npx wrangler deploy
+npm exec --package=wrangler@4.68.0 -- wrangler deploy
 if errorlevel 1 (
     echo 部署失敗！
     pause
@@ -132,26 +132,20 @@ node upload.js
 ### 步驟 3：上傳靜態文件到 KV
 
 ```bash
-npx wrangler kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
+npm exec --package=wrangler@4.68.0 -- wrangler kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
 ```
 
 **說明**：
 
-- 批量上傳所有前端靜態文件到 Cloudflare KV
-- KV 作為全球分發的內容存儲
-- `--remote` 參數指定上傳到生產環境
 
 ### 步驟 4：部署 Workers
 
 ```bash
-npx wrangler deploy
+npm exec --package=wrangler@4.68.0 -- wrangler deploy
 ```
 
 **說明**：
 
-- 部署後端 API 代碼到 Cloudflare Workers
-- 自動綁定 D1 資料庫和 KV Namespace
-- 部署到全球邊緣節點
 
 ## 版本管理
 
@@ -178,8 +172,8 @@ class AppConstants {
 
 - **AppBar 標題旁**：顯示格式為 `v0.1.1 (Build #3)`
 - **控制台日誌**：啟動時輸出版本信息
-
-### 版本管理規則
+  npm exec --package=wrangler@4.68.0 -- wrangler kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
+  npm exec --package=wrangler@4.68.0 -- wrangler deploy
 
 | 情況 | 操作 | 範例 |
 |------|------|------|
@@ -189,7 +183,7 @@ class AppConstants {
 | **使用參數覆蓋** | `--build-name` 參數 | 臨時測試版本 |
 
 ### 版本號命名規範
-
+  npm exec --package=wrangler@4.68.0 -- wrangler deploy
 ```
 major.minor.patch
   │     │     └─── 錯誤修復、小改動
@@ -198,7 +192,7 @@ major.minor.patch
 ```
 
 ## 配置說明
-
+  npm exec --package=wrangler@4.68.0 -- wrangler kv namespace create STATIC_ASSETS
 ### Wrangler 配置
 
 **文件位置**：`wrangler.jsonc`
@@ -217,10 +211,10 @@ major.minor.patch
   "kv_namespaces": [
     {
       "binding": "STATIC_ASSETS",         // 在代碼中使用 env.STATIC_ASSETS 訪問
-      "id": "e7ff4caa1f96456aadc4c1c5bf71b584"
+  npm exec --package=wrangler@4.68.0 -- wrangler deployments list
     }
   ]
-}
+  npm exec --package=wrangler@4.68.0 -- wrangler rollback [VERSION_ID]
 ```
 
 ### Cookie 配置
