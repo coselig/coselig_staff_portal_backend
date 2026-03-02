@@ -169,10 +169,25 @@ export async function handleLoadQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		const config = await env.DB
-			.prepare("SELECT quote_data FROM quote_configurations WHERE name = ?")
-			.bind(name)
+		// 檢查當前用戶角色
+		const user = await env.DB
+			.prepare("SELECT role FROM users WHERE id = ?")
+			.bind(userId)
 			.first();
+
+		let config;
+		if (user && user.role === 'customer') {
+			// 客戶只能載入屬於自己的配置
+			config = await env.DB
+				.prepare("SELECT quote_data FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
+				.bind(name, userId)
+				.first();
+		} else {
+			config = await env.DB
+				.prepare("SELECT quote_data FROM quote_configurations WHERE name = ?")
+				.bind(name)
+				.first();
+		}
 
 		if (!config) {
 			return jsonResponse({ error: "Configuration not found" }, 404, request);
@@ -193,31 +208,68 @@ export async function handleGetQuoteConfigurations(request, env) {
 	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
 
 	try {
-		// 獲取所有配置並關聯用戶資訊和客戶資訊
-		const configs = await env.DB
-			.prepare(`
-				SELECT
-					qc.id,
-					qc.user_id,
-					qc.name,
-					qc.quote_data,
-					qc.customer_user_id,
-					qc.project_name,
-					qc.project_address,
-					qc.created_at,
-					qc.updated_at,
-					u.chinese_name,
-					u.name as user_name,
-					cu.name as customer_name,
-					cu.chinese_name as customer_chinese_name,
-					c.company as customer_company
-				FROM quote_configurations qc
-				LEFT JOIN users u ON qc.user_id = u.id
-				LEFT JOIN users cu ON qc.customer_user_id = cu.id
-				LEFT JOIN customers c ON c.user_id = qc.customer_user_id
-				ORDER BY qc.updated_at DESC
-			`)
-			.all();
+		// 檢查當前用戶角色
+		const user = await env.DB
+			.prepare("SELECT role FROM users WHERE id = ?")
+			.bind(userId)
+			.first();
+
+		let configs;
+		if (user && user.role === 'customer') {
+			// 客戶只能看到自己的估價配置
+			configs = await env.DB
+				.prepare(`
+					SELECT
+						qc.id,
+						qc.user_id,
+						qc.name,
+						qc.quote_data,
+						qc.customer_user_id,
+						qc.project_name,
+						qc.project_address,
+						qc.created_at,
+						qc.updated_at,
+						u.chinese_name,
+						u.name as user_name,
+						cu.name as customer_name,
+						cu.chinese_name as customer_chinese_name,
+						c.company as customer_company
+					FROM quote_configurations qc
+					LEFT JOIN users u ON qc.user_id = u.id
+					LEFT JOIN users cu ON qc.customer_user_id = cu.id
+					LEFT JOIN customers c ON c.user_id = qc.customer_user_id
+					WHERE qc.customer_user_id = ?
+					ORDER BY qc.updated_at DESC
+				`)
+				.bind(userId)
+				.all();
+		} else {
+			// 員工/管理員可以看到所有配置
+			configs = await env.DB
+				.prepare(`
+					SELECT
+						qc.id,
+						qc.user_id,
+						qc.name,
+						qc.quote_data,
+						qc.customer_user_id,
+						qc.project_name,
+						qc.project_address,
+						qc.created_at,
+						qc.updated_at,
+						u.chinese_name,
+						u.name as user_name,
+						cu.name as customer_name,
+						cu.chinese_name as customer_chinese_name,
+						c.company as customer_company
+					FROM quote_configurations qc
+					LEFT JOIN users u ON qc.user_id = u.id
+					LEFT JOIN users cu ON qc.customer_user_id = cu.id
+					LEFT JOIN customers c ON c.user_id = qc.customer_user_id
+					ORDER BY qc.updated_at DESC
+				`)
+				.all();
+		}
 
 		return jsonResponse({ configurations: configs.results }, 200, request);
 
@@ -240,10 +292,25 @@ export async function handleDeleteQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		const result = await env.DB
-			.prepare("DELETE FROM quote_configurations WHERE name = ?")
-			.bind(name)
-			.run();
+		// 檢查當前用戶角色
+		const user = await env.DB
+			.prepare("SELECT role FROM users WHERE id = ?")
+			.bind(userId)
+			.first();
+
+		let result;
+		if (user && user.role === 'customer') {
+			// 客戶只能刪除屬於自己的配置
+			result = await env.DB
+				.prepare("DELETE FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
+				.bind(name, userId)
+				.run();
+		} else {
+			result = await env.DB
+				.prepare("DELETE FROM quote_configurations WHERE name = ?")
+				.bind(name)
+				.run();
+		}
 
 		if (result.changes === 0) {
 			return jsonResponse({ error: "Configuration not found" }, 404, request);
