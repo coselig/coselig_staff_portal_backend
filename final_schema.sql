@@ -101,3 +101,26 @@ INSERT OR IGNORE INTO fixture_type_options (type, quantity_label, unit_label, is
 ('崁燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0, 10),
 ('射燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0, 7),
 ('吊燈', '燈具數量', '每顆瓦數 (W)', 0, 0.0, 40);
+
+-- Device config options for the discovery generator
+CREATE TABLE IF NOT EXISTS device_config_options (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  brand TEXT NOT NULL,
+  model TEXT NOT NULL,
+  types TEXT NOT NULL DEFAULT '[]',
+  channels TEXT NOT NULL DEFAULT '{}',
+  channel_map TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))),
+  updated_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))),
+  UNIQUE(brand, model)
+);
+
+-- Insert predefined device config options
+INSERT OR IGNORE INTO device_config_options (brand, model, types, channels, channel_map) VALUES
+('sunwave', 'p404', '["dual","single","rgb"]', '{"dual":["a","b"],"single":["1","2","3","4"],"rgb":["x"]}', '{"a":["1","2"],"b":["3","4"],"x":["1","2","3"]}'),
+('sunwave', 'p210', '["dual","single"]', '{"dual":["a"],"single":["1","2"]}', '{"a":["1","2"]}'),
+('sunwave', 'U4', '["dual","single","rgb"]', '{"dual":["a","b"],"single":["1","2","3","4"],"rgb":["x"]}', '{"a":["1","2"],"b":["3","4"],"x":["1","2","3"]}'),
+('sunwave', 'R8A', '["relay"]', '{"relay":["1","2","3","4","5","6","7","8"]}', '{}'),
+('sunwave', 'R410', '["relay"]', '{"relay":["1","2","3","4"]}', '{}'),
+('guo', 'p805', '["dual","single","rgbw"]', '{"dual":["a","b","c","d"],"single":["1","2","3","4","5","6","7","8"],"rgbw":["x","y"]}', '{"a":["1","2"],"b":["3","4"],"c":["5","6"],"d":["7","8"],"x":["1","2","3","4"],"y":["5","6","7","8"]}'),
+('guo', 'p305', '["dual","single"]', '{"dual":["a"],"single":["1","2","3"]}', '{"a":["1","2"]}');

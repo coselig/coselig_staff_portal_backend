@@ -174,3 +174,147 @@ export async function handleDeleteConfiguration(request, env) {
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
+
+// ===== 裝置設定選項 CRUD =====
+
+// 獲取所有裝置設定選項
+export async function handleGetDeviceConfigOptions(request, env) {
+	try {
+		const options = await env.DB
+			.prepare("SELECT id, brand, model, types, channels, channel_map, created_at, updated_at FROM device_config_options ORDER BY brand, model")
+			.all();
+
+		const deviceConfigOptions = options.results.map(opt => ({
+			id: opt.id,
+			brand: opt.brand,
+			model: opt.model,
+			types: JSON.parse(opt.types),
+			channels: JSON.parse(opt.channels),
+			channelMap: JSON.parse(opt.channel_map),
+			createdAt: opt.created_at,
+			updatedAt: opt.updated_at,
+		}));
+
+		return jsonResponse({ deviceConfigOptions }, 200, request);
+	} catch (err) {
+		console.error('Get device config options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 新增裝置設定選項
+export async function handleAddDeviceConfigOption(request, env) {
+	try {
+		const body = await request.json();
+		if (!body?.brand || !body?.model || !body?.types || !body?.channels) {
+			return jsonResponse({ error: 'Missing required fields: brand, model, types, channels' }, 400, request);
+		}
+
+		const { brand, model, types, channels, channelMap = {} } = body;
+
+		// 檢查是否已存在
+		const existing = await env.DB
+			.prepare("SELECT id FROM device_config_options WHERE brand = ? AND model = ?")
+			.bind(brand, model)
+			.first();
+
+		if (existing) {
+			return jsonResponse({ error: 'Device config option already exists for this brand and model' }, 409, request);
+		}
+
+		await env.DB
+			.prepare("INSERT INTO device_config_options (brand, model, types, channels, channel_map) VALUES (?, ?, ?, ?, ?)")
+			.bind(brand, model, JSON.stringify(types), JSON.stringify(channels), JSON.stringify(channelMap))
+			.run();
+
+		return jsonResponse({ ok: true, message: 'Device config option added' }, 201, request);
+	} catch (err) {
+		console.error('Add device config option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新裝置設定選項
+export async function handleUpdateDeviceConfigOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+		if (!id) {
+			return jsonResponse({ error: 'Missing id' }, 400, request);
+		}
+
+		const body = await request.json();
+		const { brand, model, types, channels, channelMap } = body;
+
+		const existing = await env.DB
+			.prepare("SELECT id FROM device_config_options WHERE id = ?")
+			.bind(id)
+			.first();
+
+		if (!existing) {
+			return jsonResponse({ error: 'Device config option not found' }, 404, request);
+		}
+
+		// 檢查唯一性（排除自身）
+		if (brand && model) {
+			const duplicate = await env.DB
+				.prepare("SELECT id FROM device_config_options WHERE brand = ? AND model = ? AND id != ?")
+				.bind(brand, model, id)
+				.first();
+			if (duplicate) {
+				return jsonResponse({ error: 'Device config option already exists for this brand and model' }, 409, request);
+			}
+		}
+
+		let updateFields = [];
+		let values = [];
+
+		if (brand !== undefined) { updateFields.push("brand = ?"); values.push(brand); }
+		if (model !== undefined) { updateFields.push("model = ?"); values.push(model); }
+		if (types !== undefined) { updateFields.push("types = ?"); values.push(JSON.stringify(types)); }
+		if (channels !== undefined) { updateFields.push("channels = ?"); values.push(JSON.stringify(channels)); }
+		if (channelMap !== undefined) { updateFields.push("channel_map = ?"); values.push(JSON.stringify(channelMap)); }
+
+		if (updateFields.length === 0) {
+			return jsonResponse({ error: 'No fields to update' }, 400, request);
+		}
+
+		updateFields.push("updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))");
+		values.push(id);
+
+		await env.DB
+			.prepare(`UPDATE device_config_options SET ${updateFields.join(", ")} WHERE id = ?`)
+			.bind(...values)
+			.run();
+
+		return jsonResponse({ ok: true, message: 'Device config option updated' }, 200, request);
+	} catch (err) {
+		console.error('Update device config option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 刪除裝置設定選項
+export async function handleDeleteDeviceConfigOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+		if (!id) {
+			return jsonResponse({ error: 'Missing id' }, 400, request);
+		}
+
+		const result = await env.DB
+			.prepare("DELETE FROM device_config_options WHERE id = ?")
+			.bind(id)
+			.run();
+
+		if (result.changes === 0) {
+			return jsonResponse({ error: 'Device config option not found' }, 404, request);
+		}
+
+		return jsonResponse({ ok: true, message: 'Device config option deleted' }, 200, request);
+	} catch (err) {
+		console.error('Delete device config option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
