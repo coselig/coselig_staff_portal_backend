@@ -30,6 +30,7 @@ export async function handleCreateCustomer(request, env) {
 		const body = await request.json();
 		const {
 			company,
+			tax_id,
 			contact_person,
 			notes
 		} = body;
@@ -48,11 +49,11 @@ export async function handleCreateCustomer(request, env) {
 		const result = await env.DB
 			.prepare(`
 				INSERT INTO customers (
-					user_id, company, contact_person, notes
-				) VALUES (?, ?, ?, ?)
+					user_id, company, tax_id, contact_person, notes
+				) VALUES (?, ?, ?, ?, ?)
 			`)
 			.bind(
-				userId, company?.trim(), contact_person?.trim(), notes?.trim()
+				userId, company?.trim(), tax_id?.trim(), contact_person?.trim(), notes?.trim()
 			)
 			.run();
 
@@ -86,7 +87,7 @@ export async function handleGetCustomers(request, env) {
 			customers = await env.DB
 				.prepare(`
 					SELECT
-						c.id, c.user_id, c.company, c.contact_person, c.notes, 
+						c.id, c.user_id, c.company, c.tax_id, c.contact_person, c.notes, 
 						c.is_active, c.created_at, c.updated_at,
 						u.name, u.chinese_name, u.email, u.phone, u.address
 					FROM customers c
@@ -99,7 +100,7 @@ export async function handleGetCustomers(request, env) {
 			customers = await env.DB
 				.prepare(`
 					SELECT
-						c.id, c.user_id, c.company, c.contact_person, c.notes, 
+						c.id, c.user_id, c.company, c.tax_id, c.contact_person, c.notes, 
 						c.is_active, c.created_at, c.updated_at,
 						u.name, u.chinese_name, u.email, u.phone, u.address
 					FROM customers c
@@ -128,7 +129,7 @@ export async function handleGetCustomerById(request, env, customerId) {
 		const customer = await env.DB
 			.prepare(`
 				SELECT
-					c.id, c.user_id, c.company, c.contact_person, c.notes, 
+					c.id, c.user_id, c.company, c.tax_id, c.contact_person, c.notes, 
 					c.is_active, c.created_at, c.updated_at,
 					u.name, u.chinese_name, u.email, u.phone, u.address
 				FROM customers c
@@ -159,6 +160,7 @@ export async function handleUpdateCustomer(request, env, customerId) {
 		const body = await request.json();
 		const {
 			company,
+			tax_id,
 			contact_person,
 			notes,
 			is_active
@@ -168,12 +170,12 @@ export async function handleUpdateCustomer(request, env, customerId) {
 		await env.DB
 			.prepare(`
 				UPDATE customers
-				SET company = ?, contact_person = ?, notes = ?, is_active = ?,
+				SET company = ?, tax_id = ?, contact_person = ?, notes = ?, is_active = ?,
 				    updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE id = ? AND user_id = ?
 			`)
 			.bind(
-				company?.trim(), contact_person?.trim(), notes?.trim(),
+				company?.trim(), tax_id?.trim(), contact_person?.trim(), notes?.trim(),
 				is_active ? 1 : 0, customerId, userId
 			)
 			.run();
