@@ -4,7 +4,7 @@
 export async function handleGetSwitchOptions(request, env) {
 	try {
 		const switches = await env.DB
-			.prepare("SELECT id, name, price, count, fire_type AS fireType, networkable, protocol, color, scene_capable AS sceneCapable, created_at, updated_at FROM switch_options ORDER BY id")
+			.prepare("SELECT id, name, price, count, fire_type AS fireType, protocol, color, scene_capable AS sceneCapable, created_at, updated_at FROM switch_options ORDER BY id")
 			.all();
 		return jsonResponse({ switchOptions: switches.results }, 200, request);
 	} catch (err) {
@@ -20,10 +20,10 @@ export async function handleAddSwitchOption(request, env) {
 		if (!body?.name || typeof body.count !== 'number') {
 			return jsonResponse({ error: 'Missing required fields: name, count' }, 400, request);
 		}
-		const { name, price = 0.0, count, fireType = '', networkable = false, protocol = '', color = '', sceneCapable = false } = body;
+		const { name, price = 0.0, count, fireType = '', protocol = '', color = '', sceneCapable = false } = body;
 		await env.DB
-			.prepare("INSERT INTO switch_options (name, price, count, fire_type, networkable, protocol, color, scene_capable) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-			.bind(name, price, count, fireType, networkable ? 1 : 0, protocol, color, sceneCapable ? 1 : 0)
+			.prepare("INSERT INTO switch_options (name, price, count, fire_type, protocol, color, scene_capable) VALUES (?, ?, ?, ?, ?, ?, ?)")
+			.bind(name, price, count, fireType, protocol, color, sceneCapable ? 1 : 0)
 			.run();
 		return jsonResponse({ ok: true, message: 'Switch option added' }, 200, request);
 	} catch (err) {
@@ -39,10 +39,10 @@ export async function handleUpdateSwitchOption(request, env) {
 		if (!body?.id) {
 			return jsonResponse({ error: 'Missing id' }, 400, request);
 		}
-		const { id, name, price = 0.0, count, fireType = '', networkable = false, protocol = '', color = '', sceneCapable = false } = body;
+		const { id, name, price = 0.0, count, fireType = '', protocol = '', color = '', sceneCapable = false } = body;
 		await env.DB
-			.prepare("UPDATE switch_options SET name = ?, price = ?, count = ?, fire_type = ?, networkable = ?, protocol = ?, color = ?, scene_capable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
-			.bind(name, price, count, fireType, networkable ? 1 : 0, protocol, color, sceneCapable ? 1 : 0, id)
+			.prepare("UPDATE switch_options SET name = ?, price = ?, count = ?, fire_type = ?, protocol = ?, color = ?, scene_capable = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+			.bind(name, price, count, fireType, protocol, color, sceneCapable ? 1 : 0, id)
 			.run();
 		return jsonResponse({ ok: true, message: 'Switch option updated' }, 200, request);
 	} catch (err) {
