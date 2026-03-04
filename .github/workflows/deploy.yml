@@ -60,6 +60,8 @@ jobs:
         run: node upload.js
 
       # ── Step 3/4 — Upload static files to KV ────────────────
+      - name: Install Wrangler
+        run: npm install -g wrangler@4.70.0
       - name: "[3/4] Upload static files to KV"
         uses: cloudflare/wrangler-action@v3
         with:
