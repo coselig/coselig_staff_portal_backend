@@ -66,7 +66,7 @@ export async function handleGoogleLogin(request, env) {
 
 	// 查找或創建用戶
 	let user = await env.DB
-		.prepare("SELECT id, name, email, role FROM users WHERE email = ?")
+		.prepare("SELECT id, name, email, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE email = ?")
 		.bind(googleUser.email)
 		.first();
 
@@ -88,7 +88,7 @@ export async function handleGoogleLogin(request, env) {
 
 		// 直接從資料庫查詢剛插入的用戶，確保獲得正確的 ID
 		const newUser = await env.DB
-			.prepare("SELECT id, name, email, role FROM users WHERE email = ?")
+			.prepare("SELECT id, name, email, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE email = ?")
 			.bind(googleUser.email)
 			.first();
 
@@ -118,7 +118,7 @@ export async function handleGoogleLogin(request, env) {
 		.bind(sessionId, user.id, expires)
 		.run();
 
-	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } }), {
+	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, theme_mode: user.theme_mode, font_size_scale: user.font_size_scale, show_working_staff_card: user.show_working_staff_card } }), {
 		status: 200,
 		headers: {
 			...corsHeaders(request),
@@ -137,12 +137,12 @@ export async function handleLogin(request, env) {
 	let user;
 	if (email) {
 		user = await env.DB
-			.prepare("SELECT id, name, email, password, role FROM users WHERE email = ?")
+			.prepare("SELECT id, name, email, password, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE email = ?")
 			.bind(email)
 			.first();
 	} else if (name) {
 		user = await env.DB
-			.prepare("SELECT id, name, email, password, role FROM users WHERE name = ?")
+			.prepare("SELECT id, name, email, password, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE name = ?")
 			.bind(name)
 			.first();
 	}
@@ -161,7 +161,7 @@ export async function handleLogin(request, env) {
 		.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
 		.bind(sessionId, user.id, expires)
 		.run();
-	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role } }), {
+	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, theme_mode: user.theme_mode, font_size_scale: user.font_size_scale, show_working_staff_card: user.show_working_staff_card } }), {
 		status: 200,
 		headers: {
 			...corsHeaders(request),
@@ -192,7 +192,7 @@ export async function handleMe(request, env) {
 		return jsonResponse({ error: "Session expired" }, 401, request);
 	}
 	const user = await env.DB
-		.prepare("SELECT id, name, chinese_name, email, role FROM users WHERE id = ?")
+		.prepare("SELECT id, name, chinese_name, email, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE id = ?")
 		.bind(session.user_id)
 		.first();
 	// 確保 user 物件有 id 欄位

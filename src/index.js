@@ -8,7 +8,7 @@ import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption } from './quote.js';
-import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode } from './users.js';
+import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
@@ -111,6 +111,7 @@ const routes = {
 		"/api/attendance/period": updatePeriodName,
 		"/api/users/me": handleUpdateCurrentUser,
 		"/api/users/theme-mode": handleUpdateThemeMode,
+		"/api/users/ui-preferences": handleUpdateUiPreferences,
 		"/api/module-options": handleUpdateModuleOption,
 		"/api/fixture-type-options": handleUpdateFixtureTypeOption,
 		"/api/switch-options": handleUpdateSwitchOption,

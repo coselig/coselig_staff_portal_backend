@@ -39,7 +39,8 @@ export async function handleGetCurrentUser(request, env) {
 		const user = await env.DB
 			.prepare(`
 				SELECT id, name, chinese_name, email, role, job_title, 
-				       phone, address, bank_account, is_active, theme_mode, created_at
+				       phone, address, bank_account, is_active, theme_mode,
+				       font_size_scale, show_working_staff_card, created_at
 				FROM users WHERE id = ?
 			`)
 			.bind(userId)
@@ -155,6 +156,53 @@ export async function handleUpdateCurrentUser(request, env) {
 
 	} catch (err) {
 		console.error('Update current user error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新用戶 UI 偏好設定（字體大小、顯示工作員工卡片）
+export async function handleUpdateUiPreferences(request, env) {
+	const userId = await getCurrentUserId(request, env);
+	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
+
+	try {
+		const body = await request.json().catch(() => null);
+		if (!body) {
+			return jsonResponse({ error: "Invalid request body" }, 400, request);
+		}
+
+		const updates = [];
+		const values = [];
+
+		if (body.font_size_scale !== undefined) {
+			const scale = parseFloat(body.font_size_scale);
+			if (isNaN(scale) || scale < 0.5 || scale > 2.0) {
+				return jsonResponse({ error: "font_size_scale must be between 0.5 and 2.0" }, 400, request);
+			}
+			updates.push('font_size_scale = ?');
+			values.push(scale);
+		}
+
+		if (body.show_working_staff_card !== undefined) {
+			updates.push('show_working_staff_card = ?');
+			values.push(body.show_working_staff_card ? 1 : 0);
+		}
+
+		if (updates.length === 0) {
+			return jsonResponse({ error: "No valid fields to update" }, 400, request);
+		}
+
+		values.push(userId);
+
+		await env.DB
+			.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`)
+			.bind(...values)
+			.run();
+
+		return jsonResponse({ ok: true, message: "UI preferences updated successfully" }, 200, request);
+
+	} catch (err) {
+		console.error('Update UI preferences error:', err);
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
