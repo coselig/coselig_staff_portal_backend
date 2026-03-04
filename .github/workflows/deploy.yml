@@ -1,0 +1,107 @@
+name: Deploy Coselig Staff Portal
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout both repos ──────────────────────────────────
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          path: coselig_staff_portal_backend
+
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          repository: coselig/coselig_staff_portal_frontend
+          token: ${{ secrets.FRONTEND_REPO_PAT }}
+          path: coselig_staff_portal_frontend
+
+      # ── Setup toolchains ─────────────────────────────────────
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ── Step 1/4 — Read version & build Flutter ─────────────
+      - name: Read version from pubspec.yaml
+        id: version
+        working-directory: coselig_staff_portal_frontend
+        run: |
+          FULL_VER=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          VERSION=$(echo "$FULL_VER" | cut -d'+' -f1)
+          BUILD_NUMBER=$(echo "$FULL_VER" | cut -d'+' -f2)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION (Build #$BUILD_NUMBER)"
+
+      - name: "[1/4] Build Flutter Frontend"
+        working-directory: coselig_staff_portal_frontend
+        run: |
+          flutter build web --release \
+            --build-name=${{ steps.version.outputs.version }} \
+            --build-number=${{ steps.version.outputs.build_number }}
+
+      # ── Step 2/4 — Generate asset list ───────────────────────
+      - name: "[2/4] Generate asset list (assets.json)"
+        working-directory: coselig_staff_portal_backend
+        run: node upload.js
+
+      # ── Step 3/4 — Upload static files to KV ────────────────
+      - name: "[3/4] Upload static files to KV"
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '3'
+          workingDirectory: coselig_staff_portal_backend
+          command: kv bulk put assets.json --namespace-id e7ff4caa1f96456aadc4c1c5bf71b584 --remote
+
+      # ── Step 4/4 — Deploy Workers ───────────────────────────
+      - name: "[4/4] Deploy Workers"
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: coselig_staff_portal_backend
+          command: deploy
+
+      # ── Bump version in frontend repo ────────────────────────
+      - name: Bump build number in pubspec.yaml
+        working-directory: coselig_staff_portal_frontend
+        run: |
+          CURRENT_BUILD=${{ steps.version.outputs.build_number }}
+          NEXT_BUILD=$((CURRENT_BUILD + 1))
+          VERSION=${{ steps.version.outputs.version }}
+          sed -i "s/^version: .*/version: ${VERSION}+${NEXT_BUILD}/" pubspec.yaml
+          echo "✅ Next version: ${VERSION}+${NEXT_BUILD}"
+
+      - name: Push version bump to frontend repo
+        working-directory: coselig_staff_portal_frontend
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "chore: bump build number to ${{ steps.version.outputs.version }}+$(( ${{ steps.version.outputs.build_number }} + 1 )) [skip ci]"
+          git push
+
+      - name: Deployment summary
+        run: |
+          echo "======================================"
+          echo "✅ Deployment successful!"
+          echo "Version: ${{ steps.version.outputs.version }} (Build #${{ steps.version.outputs.build_number }})"
+          echo "URL: https://employeeservice.coseligtest.workers.dev"
+          echo "======================================"
