@@ -100,8 +100,8 @@ export async function handleGoogleLogin(request, env) {
 
 			// 自動為 customer 角色用戶創建 customers 記錄
 			await env.DB
-				.prepare("INSERT INTO customers (user_id, name, email) VALUES (?, ?, ?)")
-				.bind(newUser.id, googleUser.name, googleUser.email)
+				.prepare("INSERT INTO customers (user_id) VALUES (?)")
+				.bind(newUser.id)
 				.run();
 		} else {
 			console.error('Failed to get valid user ID, newUser:', newUser);
@@ -250,8 +250,8 @@ export async function handleRegister(request, env) {
 		if (newUser) {
 			// 自動為 customer 角色用戶創建 customers 記錄
 			await env.DB
-				.prepare("INSERT INTO customers (user_id, name, email) VALUES (?, ?, ?)")
-				.bind(newUser.id, name, email)
+				.prepare("INSERT INTO customers (user_id) VALUES (?)")
+				.bind(newUser.id)
 				.run();
 		}
 
