@@ -75,11 +75,11 @@ NEXT_BUILD_NUMBER=$((BUILD_NUMBER + 1))
 NEXT_VERSION="${VERSION}+${NEXT_BUILD_NUMBER}"
 
 TMP_FILE="$(mktemp)"
-awk -v next="${NEXT_VERSION}" '
+awk -v next_version="${NEXT_VERSION}" '
   BEGIN { replaced = 0 }
   {
     if (!replaced && $0 ~ /^version:[[:space:]]*[^[:space:]]+/) {
-      print "version: " next
+      print "version: " next_version
       replaced = 1
     } else {
       print
@@ -87,7 +87,7 @@ awk -v next="${NEXT_VERSION}" '
   }
   END {
     if (!replaced) {
-      print "version: " next
+      print "version: " next_version
     }
   }
 ' "${PUBSPEC}" > "${TMP_FILE}"
