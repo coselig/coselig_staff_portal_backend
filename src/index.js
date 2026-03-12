@@ -7,7 +7,7 @@ import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin 
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption } from './discovery.js';
-import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption } from './quote.js';
+import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption, handleGetPowerSupplyOptions, handleAddPowerSupplyOption, handleUpdatePowerSupplyOption, handleDeletePowerSupplyOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
@@ -80,6 +80,7 @@ const routes = {
 		"/api/quote-configurations": handleGetQuoteConfigurations,
 		"/api/quote-configurations/load": handleLoadQuoteConfiguration,
 		"/api/module-options": handleGetModuleOptions,
+		"/api/power-supply-options": handleGetPowerSupplyOptions,
 		"/api/fixture-type-options": handleGetFixtureTypeOptions,
 		"/api/switch-options": handleGetSwitchOptions,
 		"/api/device-config-options": handleGetDeviceConfigOptions,
@@ -102,6 +103,7 @@ const routes = {
 		"/api/configurations": handleSaveConfiguration,
 		"/api/quote-configurations": handleSaveQuoteConfiguration,
 		"/api/module-options": handleAddModuleOption,
+		"/api/power-supply-options": handleAddPowerSupplyOption,
 		"/api/fixture-type-options": handleAddFixtureTypeOption,
 		"/api/switch-options": handleAddSwitchOption,
 		"/api/device-config-options": handleAddDeviceConfigOption,
@@ -113,6 +115,7 @@ const routes = {
 		"/api/users/theme-mode": handleUpdateThemeMode,
 		"/api/users/ui-preferences": handleUpdateUiPreferences,
 		"/api/module-options": handleUpdateModuleOption,
+		"/api/power-supply-options": handleUpdatePowerSupplyOption,
 		"/api/fixture-type-options": handleUpdateFixtureTypeOption,
 		"/api/switch-options": handleUpdateSwitchOption,
 		"/api/device-config-options": handleUpdateDeviceConfigOption,
@@ -121,6 +124,7 @@ const routes = {
 		"/api/configurations": handleDeleteConfiguration,
 		"/api/quote-configurations": handleDeleteQuoteConfiguration,
 		"/api/module-options": handleDeleteModuleOption,
+		"/api/power-supply-options": handleDeletePowerSupplyOption,
 		"/api/fixture-type-options": handleDeleteFixtureTypeOption,
 		"/api/switch-options": handleDeleteSwitchOption,
 		"/api/device-config-options": handleDeleteDeviceConfigOption,

@@ -72,6 +72,214 @@ export async function handleDeleteSwitchOption(request, env) {
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
+
+// ===== 電源供應器選項 CRUD =====
+
+function normalizePowerSupplyType(type) {
+	return String(type ?? '').trim().toUpperCase();
+}
+
+function normalizeInputVoltage(inputVoltage) {
+	return Number(inputVoltage);
+}
+
+// 獲取電源供應器選項
+export async function handleGetPowerSupplyOptions(request, env) {
+	try {
+		const result = await env.DB
+			.prepare("SELECT id, name, wattage, type, input_voltage, price, created_at, updated_at FROM power_supply_options ORDER BY type, wattage, name")
+			.all();
+
+		const powerSupplyOptions = result.results.map((item) => ({
+			id: item.id,
+			name: item.name,
+			wattage: item.wattage,
+			type: item.type,
+			inputVoltage: item.input_voltage,
+			price: item.price,
+			createdAt: item.created_at,
+			updatedAt: item.updated_at,
+		}));
+
+		return jsonResponse({ powerSupplyOptions }, 200, request);
+	} catch (err) {
+		console.error('Get power supply options error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 新增電源供應器選項
+export async function handleAddPowerSupplyOption(request, env) {
+	try {
+		const body = await request.json().catch(() => null);
+		if (!body?.name || body?.wattage === undefined || body?.type === undefined || body?.inputVoltage === undefined) {
+			return jsonResponse({ error: 'Missing required fields: name, wattage, type, inputVoltage' }, 400, request);
+		}
+
+		const name = String(body.name).trim();
+		const wattage = Number(body.wattage);
+		const type = normalizePowerSupplyType(body.type);
+		const inputVoltage = normalizeInputVoltage(body.inputVoltage);
+		const price = Number(body.price ?? 0.0);
+
+		if (!name) {
+			return jsonResponse({ error: 'Name is required' }, 400, request);
+		}
+		if (!Number.isFinite(wattage) || wattage <= 0) {
+			return jsonResponse({ error: 'Wattage must be a positive number' }, 400, request);
+		}
+		if (type !== 'UHP' && type !== 'HLG') {
+			return jsonResponse({ error: 'Type must be UHP or HLG' }, 400, request);
+		}
+		if (inputVoltage !== 110 && inputVoltage !== 220) {
+			return jsonResponse({ error: 'Input voltage must be 110 or 220' }, 400, request);
+		}
+		if (!Number.isFinite(price) || price < 0) {
+			return jsonResponse({ error: 'Price must be a non-negative number' }, 400, request);
+		}
+
+		const existing = await env.DB
+			.prepare("SELECT id FROM power_supply_options WHERE name = ?")
+			.bind(name)
+			.first();
+
+		if (existing) {
+			return jsonResponse({ error: 'Power supply name already exists' }, 409, request);
+		}
+
+		await env.DB
+			.prepare("INSERT INTO power_supply_options (name, wattage, type, input_voltage, price) VALUES (?, ?, ?, ?, ?)")
+			.bind(name, wattage, type, inputVoltage, price)
+			.run();
+
+		return jsonResponse({ ok: true, message: 'Power supply option added successfully' }, 201, request);
+	} catch (err) {
+		console.error('Add power supply option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 更新電源供應器選項
+export async function handleUpdatePowerSupplyOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+
+		if (!id) {
+			return jsonResponse({ error: 'Power supply ID is required' }, 400, request);
+		}
+
+		const body = await request.json().catch(() => null);
+		if (!body) {
+			return jsonResponse({ error: 'Request body is required' }, 400, request);
+		}
+
+		const existing = await env.DB
+			.prepare("SELECT id FROM power_supply_options WHERE id = ?")
+			.bind(id)
+			.first();
+
+		if (!existing) {
+			return jsonResponse({ error: 'Power supply option not found' }, 404, request);
+		}
+
+		if (body.name !== undefined) {
+			const name = String(body.name).trim();
+			if (!name) {
+				return jsonResponse({ error: 'Name cannot be empty' }, 400, request);
+			}
+			const duplicate = await env.DB
+				.prepare("SELECT id FROM power_supply_options WHERE name = ? AND id != ?")
+				.bind(name, id)
+				.first();
+			if (duplicate) {
+				return jsonResponse({ error: 'Power supply name already exists' }, 409, request);
+			}
+		}
+
+		let updateFields = [];
+		let values = [];
+
+		if (body.name !== undefined) {
+			updateFields.push('name = ?');
+			values.push(String(body.name).trim());
+		}
+		if (body.wattage !== undefined) {
+			const wattage = Number(body.wattage);
+			if (!Number.isFinite(wattage) || wattage <= 0) {
+				return jsonResponse({ error: 'Wattage must be a positive number' }, 400, request);
+			}
+			updateFields.push('wattage = ?');
+			values.push(wattage);
+		}
+		if (body.type !== undefined) {
+			const type = normalizePowerSupplyType(body.type);
+			if (type !== 'UHP' && type !== 'HLG') {
+				return jsonResponse({ error: 'Type must be UHP or HLG' }, 400, request);
+			}
+			updateFields.push('type = ?');
+			values.push(type);
+		}
+		if (body.inputVoltage !== undefined) {
+			const inputVoltage = normalizeInputVoltage(body.inputVoltage);
+			if (inputVoltage !== 110 && inputVoltage !== 220) {
+				return jsonResponse({ error: 'Input voltage must be 110 or 220' }, 400, request);
+			}
+			updateFields.push('input_voltage = ?');
+			values.push(inputVoltage);
+		}
+		if (body.price !== undefined) {
+			const price = Number(body.price);
+			if (!Number.isFinite(price) || price < 0) {
+				return jsonResponse({ error: 'Price must be a non-negative number' }, 400, request);
+			}
+			updateFields.push('price = ?');
+			values.push(price);
+		}
+
+		if (updateFields.length === 0) {
+			return jsonResponse({ error: 'No fields to update' }, 400, request);
+		}
+
+		updateFields.push("updated_at = CURRENT_TIMESTAMP");
+		values.push(id);
+
+		await env.DB
+			.prepare(`UPDATE power_supply_options SET ${updateFields.join(', ')} WHERE id = ?`)
+			.bind(...values)
+			.run();
+
+		return jsonResponse({ ok: true, message: 'Power supply option updated successfully' }, 200, request);
+	} catch (err) {
+		console.error('Update power supply option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
+// 刪除電源供應器選項
+export async function handleDeletePowerSupplyOption(request, env) {
+	try {
+		const url = new URL(request.url);
+		const id = url.searchParams.get('id');
+		if (!id) {
+			return jsonResponse({ error: 'Power supply ID is required' }, 400, request);
+		}
+
+		const result = await env.DB
+			.prepare('DELETE FROM power_supply_options WHERE id = ?')
+			.bind(id)
+			.run();
+
+		if (result.changes === 0) {
+			return jsonResponse({ error: 'Power supply option not found' }, 404, request);
+		}
+
+		return jsonResponse({ ok: true, message: 'Power supply option deleted successfully' }, 200, request);
+	} catch (err) {
+		console.error('Delete power supply option error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
 // quote.js - 估價系統相關的 API 處理函數
 
 import { corsHeaders, jsonResponse } from './utils.js';
