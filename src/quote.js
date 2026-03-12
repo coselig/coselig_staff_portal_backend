@@ -83,11 +83,21 @@ function normalizeInputVoltage(inputVoltage) {
 	return Number(inputVoltage);
 }
 
+function normalizeSupportsBothInputs(value) {
+	if (value === true || value === 1 || value === '1') {
+		return 1;
+	}
+	if (typeof value === 'string' && value.toLowerCase() === 'true') {
+		return 1;
+	}
+	return 0;
+}
+
 // 獲取電源供應器選項
 export async function handleGetPowerSupplyOptions(request, env) {
 	try {
 		const result = await env.DB
-			.prepare("SELECT id, name, wattage, type, input_voltage, price, created_at, updated_at FROM power_supply_options ORDER BY type, wattage, name")
+			.prepare("SELECT id, name, wattage, type, input_voltage, supports_both_inputs, price, created_at, updated_at FROM power_supply_options ORDER BY type, wattage, name")
 			.all();
 
 		const powerSupplyOptions = result.results.map((item) => ({
@@ -96,6 +106,7 @@ export async function handleGetPowerSupplyOptions(request, env) {
 			wattage: item.wattage,
 			type: item.type,
 			inputVoltage: item.input_voltage,
+			supportsBothInputs: item.supports_both_inputs === 1,
 			price: item.price,
 			createdAt: item.created_at,
 			updatedAt: item.updated_at,
@@ -120,6 +131,7 @@ export async function handleAddPowerSupplyOption(request, env) {
 		const wattage = Number(body.wattage);
 		const type = normalizePowerSupplyType(body.type);
 		const inputVoltage = normalizeInputVoltage(body.inputVoltage);
+		const supportsBothInputs = normalizeSupportsBothInputs(body.supportsBothInputs ?? body.supports_both_inputs);
 		const price = Number(body.price ?? 0.0);
 
 		if (!name) {
@@ -148,8 +160,8 @@ export async function handleAddPowerSupplyOption(request, env) {
 		}
 
 		await env.DB
-			.prepare("INSERT INTO power_supply_options (name, wattage, type, input_voltage, price) VALUES (?, ?, ?, ?, ?)")
-			.bind(name, wattage, type, inputVoltage, price)
+			.prepare("INSERT INTO power_supply_options (name, wattage, type, input_voltage, supports_both_inputs, price) VALUES (?, ?, ?, ?, ?, ?)")
+			.bind(name, wattage, type, inputVoltage, supportsBothInputs, price)
 			.run();
 
 		return jsonResponse({ ok: true, message: 'Power supply option added successfully' }, 201, request);
@@ -227,6 +239,11 @@ export async function handleUpdatePowerSupplyOption(request, env) {
 			}
 			updateFields.push('input_voltage = ?');
 			values.push(inputVoltage);
+		}
+		if (body.supportsBothInputs !== undefined || body.supports_both_inputs !== undefined) {
+			const supportsBothInputs = normalizeSupportsBothInputs(body.supportsBothInputs ?? body.supports_both_inputs);
+			updateFields.push('supports_both_inputs = ?');
+			values.push(supportsBothInputs);
 		}
 		if (body.price !== undefined) {
 			const price = Number(body.price);

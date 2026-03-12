@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS power_supply_options (
   wattage REAL NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('UHP', 'HLG')),
   input_voltage INTEGER NOT NULL CHECK (input_voltage IN (110, 220)),
+  supports_both_inputs INTEGER NOT NULL DEFAULT 0 CHECK (supports_both_inputs IN (0, 1)),
   price REAL NOT NULL DEFAULT 0.0,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
