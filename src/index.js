@@ -6,7 +6,7 @@ import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils
 import { handleLogin, handleMe, handleLogout, handleRegister, handleGoogleLogin } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
-import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption } from './discovery.js';
+import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption, handleGetDeviceConfigs } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption, handleGetPowerSupplyOptions, handleAddPowerSupplyOption, handleUpdatePowerSupplyOption, handleDeletePowerSupplyOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
@@ -84,6 +84,7 @@ const routes = {
 		"/api/fixture-type-options": handleGetFixtureTypeOptions,
 		"/api/switch-options": handleGetSwitchOptions,
 		"/api/device-config-options": handleGetDeviceConfigOptions,
+		"/api/device-configs": handleGetDeviceConfigs,
 		"/api/users/me": handleGetCurrentUser,
 		"/api/users": handleGetAllUsers,
 		"/api/customers": handleGetCustomers,

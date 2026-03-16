@@ -177,6 +177,42 @@ export async function handleDeleteConfiguration(request, env) {
 
 // ===== 裝置設定選項 CRUD =====
 
+// Validate device config option payloads. If partial is true, only validate provided fields.
+function validateDeviceConfigPayload(body, opts = { partial: false }) {
+	if (!body || typeof body !== 'object') return { ok: false, message: 'Invalid JSON body' };
+	const partial = !!opts.partial;
+
+	if (!partial) {
+		if (!body.brand || typeof body.brand !== 'string') return { ok: false, message: 'brand is required and must be a string' };
+		if (!body.model || typeof body.model !== 'string') return { ok: false, message: 'model is required and must be a string' };
+		if (!body.types || !Array.isArray(body.types)) return { ok: false, message: 'types is required and must be an array of strings' };
+		if (!body.channels || typeof body.channels !== 'object') return { ok: false, message: 'channels is required and must be an object mapping to arrays' };
+	}
+
+	if (body.brand !== undefined && typeof body.brand !== 'string') return { ok: false, message: 'brand must be a string' };
+	if (body.model !== undefined && typeof body.model !== 'string') return { ok: false, message: 'model must be a string' };
+	if (body.types !== undefined) {
+		if (!Array.isArray(body.types)) return { ok: false, message: 'types must be an array' };
+		for (const t of body.types) if (typeof t !== 'string') return { ok: false, message: 'each type must be a string' };
+	}
+	if (body.channels !== undefined) {
+		if (typeof body.channels !== 'object') return { ok: false, message: 'channels must be an object' };
+		for (const k of Object.keys(body.channels)) {
+			if (!Array.isArray(body.channels[k])) return { ok: false, message: `channels.${k} must be an array` };
+			for (const v of body.channels[k]) if (typeof v !== 'string') return { ok: false, message: `channels.${k} values must be strings` };
+		}
+	}
+	if (body.channelMap !== undefined) {
+		if (typeof body.channelMap !== 'object') return { ok: false, message: 'channelMap must be an object' };
+		for (const k of Object.keys(body.channelMap)) {
+			if (!Array.isArray(body.channelMap[k])) return { ok: false, message: `channelMap.${k} must be an array` };
+			for (const v of body.channelMap[k]) if (typeof v !== 'string') return { ok: false, message: `channelMap.${k} values must be strings` };
+		}
+	}
+
+	return { ok: true };
+}
+
 // 獲取所有裝置設定選項
 export async function handleGetDeviceConfigOptions(request, env) {
 	try {
@@ -202,12 +238,49 @@ export async function handleGetDeviceConfigOptions(request, env) {
 	}
 }
 
+// 返回已組裝的 deviceConfigs 結構：brand -> model -> { types, channels, channel_map }
+export async function handleGetDeviceConfigs(request, env) {
+	try {
+		const options = await env.DB
+			.prepare("SELECT id, brand, model, types, channels, channel_map, created_at, updated_at FROM device_config_options ORDER BY brand, model")
+			.all();
+
+		const deviceConfigOptions = options.results.map(opt => ({
+			id: opt.id,
+			brand: opt.brand,
+			model: opt.model,
+			types: JSON.parse(opt.types),
+			channels: JSON.parse(opt.channels),
+			channelMap: JSON.parse(opt.channel_map),
+			createdAt: opt.created_at,
+			updatedAt: opt.updated_at,
+		}));
+
+		const deviceConfigs = {};
+		for (const opt of deviceConfigOptions) {
+			if (!deviceConfigs[opt.brand]) deviceConfigs[opt.brand] = {};
+			deviceConfigs[opt.brand][opt.model] = {
+				types: opt.types,
+				channels: opt.channels,
+				channel_map: opt.channelMap,
+			};
+		}
+
+		return jsonResponse({ deviceConfigs }, 200, request);
+	} catch (err) {
+		console.error('Get device configs error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}
+
 // 新增裝置設定選項
 export async function handleAddDeviceConfigOption(request, env) {
 	try {
 		const body = await request.json();
-		if (!body?.brand || !body?.model || !body?.types || !body?.channels) {
-			return jsonResponse({ error: 'Missing required fields: brand, model, types, channels' }, 400, request);
+		// Validate payload shape
+		const validation = validateDeviceConfigPayload(body);
+		if (!validation.ok) {
+			return jsonResponse({ error: validation.message }, 400, request);
 		}
 
 		const { brand, model, types, channels, channelMap = {} } = body;
@@ -245,6 +318,12 @@ export async function handleUpdateDeviceConfigOption(request, env) {
 
 		const body = await request.json();
 		const { brand, model, types, channels, channelMap } = body;
+
+		// Partial payloads allowed for updates; validate provided fields
+		const validation = validateDeviceConfigPayload(body, { partial: true });
+		if (!validation.ok) {
+			return jsonResponse({ error: validation.message }, 400, request);
+		}
 
 		const existing = await env.DB
 			.prepare("SELECT id FROM device_config_options WHERE id = ?")
