@@ -17,6 +17,10 @@ export async function handleGetSwitchOptions(request, env) {
 export async function handleAddSwitchOption(request, env) {
 	try {
 		const body = await request.json();
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.name || typeof body.count !== 'number') {
 			return jsonResponse({ error: 'Missing required fields: name, count' }, 400, request);
 		}
@@ -36,6 +40,10 @@ export async function handleAddSwitchOption(request, env) {
 export async function handleUpdateSwitchOption(request, env) {
 	try {
 		const body = await request.json();
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.id) {
 			return jsonResponse({ error: 'Missing id' }, 400, request);
 		}
@@ -54,6 +62,10 @@ export async function handleUpdateSwitchOption(request, env) {
 // 刪除開關選項
 export async function handleDeleteSwitchOption(request, env) {
 	try {
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {
@@ -123,6 +135,10 @@ export async function handleGetPowerSupplyOptions(request, env) {
 export async function handleAddPowerSupplyOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.name || body?.wattage === undefined || body?.type === undefined || body?.inputVoltage === undefined) {
 			return jsonResponse({ error: 'Missing required fields: name, wattage, type, inputVoltage' }, 400, request);
 		}
@@ -180,6 +196,11 @@ export async function handleUpdatePowerSupplyOption(request, env) {
 		if (!id) {
 			return jsonResponse({ error: 'Power supply ID is required' }, 400, request);
 		}
+
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 
 		const body = await request.json().catch(() => null);
 		if (!body) {
@@ -276,6 +297,10 @@ export async function handleUpdatePowerSupplyOption(request, env) {
 // 刪除電源供應器選項
 export async function handleDeletePowerSupplyOption(request, env) {
 	try {
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {
@@ -580,6 +605,10 @@ export async function handleGetModuleOptions(request, env) {
 export async function handleAddModuleOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.model || body.channelCount === undefined || body.maxAmperePerChannel === undefined || body.maxAmpereTotal === undefined) {
 			return jsonResponse({ error: "Missing required fields: model, channelCount, maxAmperePerChannel, maxAmpereTotal" }, 400, request);
 		}
@@ -622,6 +651,10 @@ export async function handleUpdateModuleOption(request, env) {
 			return jsonResponse({ error: "Module ID is required" }, 400, request);
 		}
 
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const body = await request.json().catch(() => null);
 		if (!body) {
 			return jsonResponse({ error: "Request body is required" }, 400, request);
@@ -706,6 +739,10 @@ export async function handleUpdateModuleOption(request, env) {
 // 刪除模組選項
 export async function handleDeleteModuleOption(request, env) {
 	try {
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 
@@ -761,6 +798,10 @@ export async function handleGetFixtureTypeOptions(request, env) {
 export async function handleAddFixtureTypeOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.type) {
 			return jsonResponse({ error: "Missing required field: type" }, 400, request);
 		}
@@ -802,6 +843,10 @@ export async function handleUpdateFixtureTypeOption(request, env) {
 			return jsonResponse({ error: "Fixture type ID is required" }, 400, request);
 		}
 
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const body = await request.json().catch(() => null);
 		if (!body) {
 			return jsonResponse({ error: "Request body is required" }, 400, request);
@@ -877,6 +922,10 @@ export async function handleUpdateFixtureTypeOption(request, env) {
 // 刪除燈具類型選項
 export async function handleDeleteFixtureTypeOption(request, env) {
 	try {
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 

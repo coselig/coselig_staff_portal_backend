@@ -277,6 +277,10 @@ export async function handleGetDeviceConfigs(request, env) {
 export async function handleAddDeviceConfigOption(request, env) {
 	try {
 		const body = await request.json();
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		// Validate payload shape
 		const validation = validateDeviceConfigPayload(body);
 		if (!validation.ok) {
@@ -315,6 +319,11 @@ export async function handleUpdateDeviceConfigOption(request, env) {
 		if (!id) {
 			return jsonResponse({ error: 'Missing id' }, 400, request);
 		}
+
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 
 		const body = await request.json();
 		const { brand, model, types, channels, channelMap } = body;
@@ -376,6 +385,10 @@ export async function handleUpdateDeviceConfigOption(request, env) {
 // 刪除裝置設定選項
 export async function handleDeleteDeviceConfigOption(request, env) {
 	try {
+		const userId = await getCurrentUserId(request, env);
+		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
+		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
+		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {
