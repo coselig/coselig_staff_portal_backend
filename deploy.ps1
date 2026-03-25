@@ -7,7 +7,7 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 # $version = "0.2.0"
 # $buildNumber = "5"
 
-$wranglerVersion = "4.68.0"
+$wranglerVersion = "4.77.0"
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $pubspec = Join-Path $scriptDir "..\coselig_staff_portal_frontend\pubspec.yaml"
