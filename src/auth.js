@@ -122,49 +122,6 @@ export async function handleGoogleLogin(request, env) {
 	});
 }
 
-export async function handleLogin(request, env) {
-	const body = await request.json().catch(() => null);
-	if ((!body?.email && !body?.name) || !body?.password) {
-		return jsonResponse({ error: "Missing fields" }, 400, request);
-	}
-	const { email, name, password } = body;
-	let user;
-	if (email) {
-		user = await env.DB
-			.prepare("SELECT id, name, email, password, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE email = ?")
-			.bind(email)
-			.first();
-	} else if (name) {
-		user = await env.DB
-			.prepare("SELECT id, name, email, password, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE name = ?")
-			.bind(name)
-			.first();
-	}
-	if (!user) {
-		return jsonResponse({ error: "User not found" }, 401, request);
-	}
-	if (user.password !== password) {
-		return jsonResponse({ error: "Wrong password" }, 401, request);
-	}
-	const sessionId = generateSessionId();
-	const expires = new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString();
-	// 先移除該 user 的所有舊 session
-	await env.DB.prepare("DELETE FROM sessions WHERE user_id = ?").bind(user.id).run();
-	// 再新增新 session
-	await env.DB
-		.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)")
-		.bind(sessionId, user.id, expires)
-		.run();
-	return new Response(JSON.stringify({ ok: true, user: { id: user.id, name: user.name, email: user.email, role: user.role, theme_mode: user.theme_mode, font_size_scale: user.font_size_scale, show_working_staff_card: user.show_working_staff_card } }), {
-		status: 200,
-		headers: {
-			...corsHeaders(request),
-			"Content-Type": "application/json",
-			"Set-Cookie": setCookie("session_id", sessionId, 30 * 24 * 3600),
-		},
-	});
-}
-
 export async function handleMe(request, env) {
 	const cookie = request.headers.get("Cookie") || "";
 	console.log('handleMe - Cookie header:', cookie);
@@ -210,47 +167,4 @@ export async function handleLogout(request, env) {
 			"Set-Cookie": setCookie("session_id", "", 0),
 		},
 	});
-}
-
-export async function handleRegister(request, env) {
-	const body = await request.json().catch(() => null);
-	if (!body?.name || !body?.email || !body?.password) {
-		return jsonResponse({ error: "Missing fields" }, 400, request);
-	}
-	const { name, email, password } = body;
-
-	// 檢查 email 是否已存在
-	const existingUser = await env.DB
-		.prepare("SELECT id FROM users WHERE email = ?")
-		.bind(email)
-		.first();
-	if (existingUser) {
-		return jsonResponse({ error: "Email already exists" }, 409, request);
-	}
-
-	// 新增用戶
-	const result = await env.DB
-		.prepare("INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, 'customer')")
-		.bind(name, email, password)
-		.run();
-
-	if (result.success) {
-		// 獲取剛創建的用戶 ID
-		const newUser = await env.DB
-			.prepare("SELECT id FROM users WHERE email = ?")
-			.bind(email)
-			.first();
-
-		if (newUser) {
-			// 自動為 customer 角色用戶創建 customers 記錄
-			await env.DB
-				.prepare("INSERT INTO customers (user_id) VALUES (?)")
-				.bind(newUser.id)
-				.run();
-		}
-
-		return jsonResponse({ ok: true, message: "User registered successfully" }, 201, request);
-	} else {
-		return jsonResponse({ error: "Failed to register user" }, 500, request);
-	}
 }
