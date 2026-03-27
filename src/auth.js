@@ -58,12 +58,6 @@ export async function handleGoogleLogin(request, env) {
 		return jsonResponse({ error: "Invalid Google token: " + e.message }, 401, request);
 	}
 
-	// 檢查是否為允許的域名 (生產環境只允許 coselig.com，測試環境允許任何域名)
-	const isProduction = request.url.includes('coselig.com');
-	if (isProduction && !googleUser.email.endsWith('@coselig.com')) {
-		return jsonResponse({ error: "Only coselig.com emails are allowed in production" }, 403, request);
-	}
-
 	// 查找或創建用戶
 	let user = await env.DB
 		.prepare("SELECT id, name, email, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE email = ?")

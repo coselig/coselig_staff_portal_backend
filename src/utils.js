@@ -2,30 +2,39 @@
  * Utility functions for Cloudflare Worker
  */
 
-export function corsHeaders(request) {
-	// 允許的來源列表
-	const allowedOrigins = [
-		"https://staff.coselig.com",
-		"https://staff-portal.coseligtest.workers.dev",
-		"https://9b3a7fe9.coselig-staff-portal-frontend.pages.dev",
-		"https://employeeservice.coseligtest.workers.dev",
-	];
+const allowedOrigins = new Set([
+	"https://staff.coselig.com",
+	"https://staff-portal.coseligtest.workers.dev",
+	"https://9b3a7fe9.coselig-staff-portal-frontend.pages.dev",
+	"https://employeeservice.coseligtest.workers.dev",
+]);
 
-	let origin = request.headers.get("Origin");
+const localDevelopmentOriginPattern =
+	/^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/;
+
+export function corsHeaders(request) {
+	const origin = request.headers.get("Origin");
 
 	// 如果沒有 Origin 或是同源請求，不需要 CORS headers
 	if (!origin) {
 		return {};
 	}
 
-	if (!allowedOrigins.includes(origin)) {
-		origin = allowedOrigins[0];  // 預設使用第一個允許的來源
+	if (
+		!allowedOrigins.has(origin) &&
+		!localDevelopmentOriginPattern.test(origin)
+	) {
+		return {
+			Vary: "Origin",
+		};
 	}
+
 	return {
 		"Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+		"Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
 		"Access-Control-Allow-Headers": "Content-Type",
 		"Access-Control-Allow-Credentials": "true",
+		Vary: "Origin",
 	};
 }
 export function jsonResponse(data, status = 200, request) {
