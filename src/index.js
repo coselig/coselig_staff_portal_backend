@@ -11,6 +11,7 @@ import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQu
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { requireAdmin, requireNonCustomer, requireSession, requireUser } from './session.js';
+import { WorkingStaffHub, broadcastWorkingStaffUpdate, handleWorkingStaffSocket } from './working_staff_hub.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -52,6 +53,13 @@ async function handleSimplePunch(request, env) {
 			employeeId, today, note, timestamp, timestamp,
 			timestamp, timestamp
 		).run();
+
+		await broadcastWorkingStaffUpdate(env, {
+			reason: type === 'in' ? 'simple-check-in' : 'simple-check-out',
+			userId: String(employeeId),
+			workDate: today,
+			period: note,
+		});
 
 		return jsonResponse({
 			success: true,
@@ -95,6 +103,7 @@ const routes = {
 		"/api/me": withGuard(requireSession, handleMe),
 		"/api/employees": withGuard(requireAdmin, handleEmployees),
 		"/api/working-staff": withGuard(requireSession, handleWorkingStaff),
+		"/api/working-staff/ws": withGuard(requireSession, handleWorkingStaffSocket),
 		"/api/attendance/month": withGuard(requireUser, getMonth),
 		"/api/configurations": withGuard(requireSession, handleGetConfigurations),
 		"/api/configurations/load": withGuard(requireSession, handleLoadConfiguration),
@@ -150,6 +159,8 @@ const routes = {
 		"/api/device-config-options": withGuard(requireNonCustomer, handleDeleteDeviceConfigOption),
 	},
 };
+
+export { WorkingStaffHub };
 
 export default {
 	async fetch(request, env) {

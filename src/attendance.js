@@ -1,4 +1,5 @@
 import { jsonResponse } from './utils.js';
+import { broadcastWorkingStaffUpdate } from './working_staff_hub.js';
 
 export async function handleManualPunch(request, env) {
 	const body = await request.json().catch(() => null);
@@ -47,6 +48,12 @@ export async function handleManualPunch(request, env) {
 				.run();
 		}
 	}
+
+	await broadcastWorkingStaffUpdate(env, {
+		reason: 'manual-punch',
+		userId: String(employee_id),
+		workDate: date,
+	});
 
 	return jsonResponse({ message: '補打卡成功' }, 200, request);
 }
@@ -116,6 +123,12 @@ export async function handleEmployeeManualPunch(request, env, auth) {
 		}
 	}
 
+	await broadcastWorkingStaffUpdate(env, {
+		reason: 'employee-manual-punch',
+		userId: String(user_id),
+		workDate: date,
+	});
+
 	return jsonResponse({ message: '員工補打卡成功' }, 200, request);
 }
 
@@ -141,6 +154,12 @@ export async function checkIn(request, env) {
 				UPDATE attendance SET check_in_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE user_id = ? AND work_date = ? AND period = ?
 			`).bind(user_id, today, period).run();
+			await broadcastWorkingStaffUpdate(env, {
+				reason: 'check-in',
+				userId: String(user_id),
+				workDate: today,
+				period,
+			});
 			return jsonResponse({ message: '補打卡成功（已更新）' });
 		} else {
 			// 沒有就插入新紀錄
@@ -148,6 +167,12 @@ export async function checkIn(request, env) {
 				INSERT INTO attendance (user_id, work_date, period, check_in_time)
 				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
 			`).bind(user_id, today, period).run();
+			await broadcastWorkingStaffUpdate(env, {
+				reason: 'check-in',
+				userId: String(user_id),
+				workDate: today,
+				period,
+			});
 			return jsonResponse({ message: '打卡成功' });
 		}
 	} catch (err) {
@@ -204,6 +229,12 @@ export async function checkOut(request, env) {
 				UPDATE attendance SET check_out_time = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')), updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 				WHERE user_id = ? AND work_date = ? AND period = ?
 			`).bind(user_id, targetDate, period).run();
+			await broadcastWorkingStaffUpdate(env, {
+				reason: 'check-out',
+				userId: String(user_id),
+				workDate: targetDate,
+				period,
+			});
 
 			const message = isOvernightCheckOut ? '跨日下班打卡成功' : '補下班打卡成功（已更新）';
 			return jsonResponse({ message }, 200, request);
@@ -213,6 +244,12 @@ export async function checkOut(request, env) {
 				INSERT INTO attendance (user_id, work_date, period, check_out_time)
 				VALUES (?, ?, ?, strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
 			`).bind(user_id, targetDate, period).run();
+			await broadcastWorkingStaffUpdate(env, {
+				reason: 'check-out',
+				userId: String(user_id),
+				workDate: targetDate,
+				period,
+			});
 			return jsonResponse({ message: '下班打卡成功' }, 200, request);
 		}
 	} catch (err) {

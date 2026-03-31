@@ -25,6 +25,12 @@ describe('Worker routes', () => {
 		expect(await response.text()).toMatchInlineSnapshot(`"{"error":"Not logged in"}"`);
 	});
 
+	it('requires login for /api/working-staff/ws (integration style)', async () => {
+		const response = await SELF.fetch('http://example.com/api/working-staff/ws');
+		expect(response.status).toBe(401);
+		expect(await response.text()).toMatchInlineSnapshot(`"{"error":"Not logged in"}"`);
+	});
+
 	it('returns not found for unknown routes (integration style)', async () => {
 		const response = await SELF.fetch('http://example.com/does-not-exist');
 		expect(response.status).toBe(404);

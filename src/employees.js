@@ -16,7 +16,7 @@ export async function handleWorkingStaff(request, env) {
 			SELECT DISTINCT a.user_id, u.name, u.chinese_name, MIN(a.check_in_time) as check_in_time
 			FROM attendance a
 			JOIN users u ON a.user_id = u.id
-			WHERE a.work_date = date('now')
+			WHERE a.work_date = date('now', '+8 hours')
 			AND a.check_in_time IS NOT NULL
 			AND a.check_out_time IS NULL
 			GROUP BY a.user_id, u.name, u.chinese_name

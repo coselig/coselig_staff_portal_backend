@@ -6,6 +6,22 @@
 	"observability": {
 		"enabled": true
 	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "WORKING_STAFF_HUB",
+				"class_name": "WorkingStaffHub"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1-working-staff-hub",
+			"new_sqlite_classes": [
+				"WorkingStaffHub"
+			]
+		}
+	],
 	// "routes": [
 	// 	"https://staff.coselig.com/*"
 	// ],
