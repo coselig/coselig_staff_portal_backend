@@ -3,6 +3,8 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
+		"commit:suggest": "bash tool/suggest_commit_message.sh",
+		"commit:suggest:front": "bash tool/suggest_commit_message.sh --repo \"${FRONTEND_DIR:-../coselig_staff_portal_frontend}\"",
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
