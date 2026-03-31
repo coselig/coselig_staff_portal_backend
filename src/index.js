@@ -2,7 +2,7 @@
  * Cloudflare Worker - 完整登入 + Session 範例
  */
 
-import { corsHeaders, jsonResponse, generateSessionId, setCookie } from './utils.js';
+import { corsHeaders, jsonResponse } from './utils.js';
 import { handleMe, handleLogout, handleGoogleLogin } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
@@ -10,6 +10,7 @@ import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfiguratio
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption, handleGetPowerSupplyOptions, handleAddPowerSupplyOption, handleUpdatePowerSupplyOption, handleDeletePowerSupplyOption } from './quote.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
+import { requireAdmin, requireNonCustomer, requireSession, requireUser } from './session.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -67,66 +68,86 @@ async function handleSimplePunch(request, env) {
 	}
 }
 
+function withGuard(guard, handler) {
+	return async (request, env) => {
+		const auth = await guard(request, env);
+		if (auth.response) {
+			return auth.response;
+		}
+
+		return handler(request, env, auth);
+	};
+}
+
+async function runWithGuard(guard, request, env, handler, ...args) {
+	const auth = await guard(request, env);
+	if (auth.response) {
+		return auth.response;
+	}
+
+	return handler(request, env, ...args, auth);
+}
+
 // 路由表
 const routes = {
 	GET: {
 		"/api/health": handleHealth,
-		"/api/me": handleMe,
-		"/api/employees": handleEmployees,
-		"/api/working-staff": handleWorkingStaff,
-		"/api/attendance/month": getMonth,
-		"/api/configurations": handleGetConfigurations,
-		"/api/configurations/load": handleLoadConfiguration,
-		"/api/quote-configurations": handleGetQuoteConfigurations,
-		"/api/quote-configurations/load": handleLoadQuoteConfiguration,
+		"/api/me": withGuard(requireSession, handleMe),
+		"/api/employees": withGuard(requireAdmin, handleEmployees),
+		"/api/working-staff": withGuard(requireSession, handleWorkingStaff),
+		"/api/attendance/month": withGuard(requireUser, getMonth),
+		"/api/configurations": withGuard(requireSession, handleGetConfigurations),
+		"/api/configurations/load": withGuard(requireSession, handleLoadConfiguration),
+		"/api/quote-configurations": withGuard(requireUser, handleGetQuoteConfigurations),
+		"/api/quote-configurations/load": withGuard(requireUser, handleLoadQuoteConfiguration),
 		"/api/module-options": handleGetModuleOptions,
 		"/api/power-supply-options": handleGetPowerSupplyOptions,
 		"/api/fixture-type-options": handleGetFixtureTypeOptions,
 		"/api/switch-options": handleGetSwitchOptions,
 		"/api/device-config-options": handleGetDeviceConfigOptions,
 		"/api/device-configs": handleGetDeviceConfigs,
-		"/api/users/me": handleGetCurrentUser,
-		"/api/users": handleGetAllUsers,
-		"/api/customers": handleGetCustomers,
+		"/api/users/me": withGuard(requireSession, handleGetCurrentUser),
+		"/api/users": withGuard(requireAdmin, handleGetAllUsers),
+		"/api/customers": withGuard(requireUser, handleGetCustomers),
 	},
 	POST: {
 		"/api/logout": handleLogout,
 		"/api/google-login": handleGoogleLogin,
-		"/api/manual-punch": handleManualPunch,
-		"/api/employee-manual-punch": handleEmployeeManualPunch,
+		"/api/manual-punch": withGuard(requireAdmin, handleManualPunch),
+		"/api/employee-manual-punch": withGuard(requireSession, handleEmployeeManualPunch),
 		"/api/devtools/manual-punch": async (req, env) => {
 			const mod = await import('./attendance.js');
 			return mod.devManualPunch(req, env);
 		},
 		"/api/simple-punch": handleSimplePunch,
-		"/api/configurations": handleSaveConfiguration,
-		"/api/quote-configurations": handleSaveQuoteConfiguration,
-		"/api/module-options": handleAddModuleOption,
-		"/api/power-supply-options": handleAddPowerSupplyOption,
-		"/api/fixture-type-options": handleAddFixtureTypeOption,
-		"/api/switch-options": handleAddSwitchOption,
-		"/api/device-config-options": handleAddDeviceConfigOption,
-		"/api/customers": handleCreateCustomer,
+		"/api/configurations": withGuard(requireSession, handleSaveConfiguration),
+		"/api/quote-configurations": withGuard(requireSession, handleSaveQuoteConfiguration),
+		"/api/module-options": withGuard(requireNonCustomer, handleAddModuleOption),
+		"/api/power-supply-options": withGuard(requireNonCustomer, handleAddPowerSupplyOption),
+		"/api/fixture-type-options": withGuard(requireNonCustomer, handleAddFixtureTypeOption),
+		"/api/switch-options": withGuard(requireNonCustomer, handleAddSwitchOption),
+		"/api/device-config-options": withGuard(requireNonCustomer, handleAddDeviceConfigOption),
+		"/api/customers": withGuard(requireSession, handleCreateCustomer),
 	},
 	PUT: {
-		"/api/attendance/period": updatePeriodName,
-		"/api/users/me": handleUpdateCurrentUser,
-		"/api/users/theme-mode": handleUpdateThemeMode,
-		"/api/users/ui-preferences": handleUpdateUiPreferences,
-		"/api/module-options": handleUpdateModuleOption,
-		"/api/power-supply-options": handleUpdatePowerSupplyOption,
-		"/api/fixture-type-options": handleUpdateFixtureTypeOption,
-		"/api/switch-options": handleUpdateSwitchOption,
-		"/api/device-config-options": handleUpdateDeviceConfigOption,
+		"/api/attendance/period": withGuard(requireSession, updatePeriodName),
+		"/api/users/me": withGuard(requireSession, handleUpdateCurrentUser),
+		"/api/users/theme-mode": withGuard(requireSession, handleUpdateThemeMode),
+		"/api/users/ui-preferences": withGuard(requireSession, handleUpdateUiPreferences),
+		"/api/module-options": withGuard(requireNonCustomer, handleUpdateModuleOption),
+		"/api/power-supply-options": withGuard(requireNonCustomer, handleUpdatePowerSupplyOption),
+		"/api/fixture-type-options": withGuard(requireNonCustomer, handleUpdateFixtureTypeOption),
+		"/api/switch-options": withGuard(requireNonCustomer, handleUpdateSwitchOption),
+		"/api/device-config-options": withGuard(requireNonCustomer, handleUpdateDeviceConfigOption),
 	},
 	DELETE: {
-		"/api/configurations": handleDeleteConfiguration,
-		"/api/quote-configurations": handleDeleteQuoteConfiguration,
-		"/api/module-options": handleDeleteModuleOption,
-		"/api/power-supply-options": handleDeletePowerSupplyOption,
-		"/api/fixture-type-options": handleDeleteFixtureTypeOption,
-		"/api/switch-options": handleDeleteSwitchOption,
-		"/api/device-config-options": handleDeleteDeviceConfigOption,
+		"/api/configurations": withGuard(requireSession, handleDeleteConfiguration),
+		"/api/quote-configurations": withGuard(requireUser, handleDeleteQuoteConfiguration),
+		"/api/module-options": withGuard(requireNonCustomer, handleDeleteModuleOption),
+		"/api/power-supply-options": withGuard(requireNonCustomer, handleDeletePowerSupplyOption),
+		"/api/fixture-type-options": withGuard(requireNonCustomer, handleDeleteFixtureTypeOption),
+		"/api/switch-options": withGuard(requireNonCustomer, handleDeleteSwitchOption),
+		"/api/device-config-options": withGuard(requireNonCustomer, handleDeleteDeviceConfigOption),
 	},
 };
 
@@ -162,18 +183,18 @@ export default {
 			// 處理動態路由 /api/users/:id
 			const userIdMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
 			if (userIdMatch && request.method === 'GET') {
-				return await handleGetUserById(request, env, userIdMatch[1]);
+				return await runWithGuard(requireAdmin, request, env, handleGetUserById, userIdMatch[1]);
 			}
 
 			// 處理動態路由 /api/customers/:id
 			const customerIdMatch = url.pathname.match(/^\/api\/customers\/(\d+)$/);
 			if (customerIdMatch) {
 				if (request.method === 'GET') {
-					return await handleGetCustomerById(request, env, customerIdMatch[1]);
+					return await runWithGuard(requireSession, request, env, handleGetCustomerById, customerIdMatch[1]);
 				} else if (request.method === 'PUT') {
-					return await handleUpdateCustomer(request, env, customerIdMatch[1]);
+					return await runWithGuard(requireSession, request, env, handleUpdateCustomer, customerIdMatch[1]);
 				} else if (request.method === 'DELETE') {
-					return await handleDeleteCustomer(request, env, customerIdMatch[1]);
+					return await runWithGuard(requireSession, request, env, handleDeleteCustomer, customerIdMatch[1]);
 				}
 			}
 

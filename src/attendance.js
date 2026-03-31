@@ -1,27 +1,6 @@
 import { jsonResponse } from './utils.js';
 
 export async function handleManualPunch(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return jsonResponse({ error: "Session expired" }, 401, request);
-	}
-
-	// 檢查用戶是否為管理員
-	const user = await env.DB
-		.prepare("SELECT role FROM users WHERE id = ?")
-		.bind(session.user_id)
-		.first();
-	if (!user || user.role !== 'admin') {
-		return jsonResponse({ error: "Access denied. Admin only." }, 403, request);
-	}
-
 	const body = await request.json().catch(() => null);
 	if (!body?.employee_id || !body?.date || !body?.periods) {
 		return jsonResponse({ error: "Missing fields" }, 400, request);
@@ -73,19 +52,7 @@ export async function handleManualPunch(request, env) {
 }
 
 // 員工自助補打卡（只能補自己的、只能補空缺的欄位）
-export async function handleEmployeeManualPunch(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return jsonResponse({ error: "Session expired" }, 401, request);
-	}
-
+export async function handleEmployeeManualPunch(request, env, auth) {
 	const body = await request.json().catch(() => null);
 	if (!body?.user_id || !body?.date || !body?.periods) {
 		return jsonResponse({ error: "Missing fields" }, 400, request);
@@ -94,7 +61,7 @@ export async function handleEmployeeManualPunch(request, env) {
 	const { user_id, date, periods } = body;
 
 	// 安全檢查：只能補自己的打卡
-	if (user_id.toString() !== session.user_id.toString()) {
+	if (user_id.toString() !== auth.session.user_id.toString()) {
 		return jsonResponse({ error: "只能補打自己的打卡記錄" }, 403, request);
 	}
 
@@ -274,29 +241,13 @@ export async function getToday(request, env) {
 	return jsonResponse(result, 200, request);
 }
 
-export async function getMonth(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return jsonResponse({ error: "Session expired" }, 401, request);
-	}
-
+export async function getMonth(request, env, auth) {
 	const url = new URL(request.url);
 	const requestedUserId = url.searchParams.get('user_id');
 
 	// 檢查權限：只有管理員可以查看其他員工的記錄
-	if (requestedUserId !== session.user_id.toString()) {
-		const currentUser = await env.DB
-			.prepare("SELECT role FROM users WHERE id = ?")
-			.bind(session.user_id)
-			.first();
-		if (!currentUser || currentUser.role !== 'admin') {
+	if (requestedUserId !== auth.session.user_id.toString()) {
+		if (auth.user.role !== 'admin') {
 			return jsonResponse({ error: "Access denied. Can only view own records." }, 403, request);
 		}
 	}
@@ -331,21 +282,7 @@ export async function getMonth(request, env) {
 }
 
 // 更新期間名稱
-export async function updatePeriodName(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
-
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return jsonResponse({ error: "Session expired" }, 401, request);
-	}
-
+export async function updatePeriodName(request, env, auth) {
 	const body = await request.json().catch(() => null);
 	if (!body?.oldPeriod || !body?.newPeriod) {
 		return jsonResponse({ error: "Missing oldPeriod or newPeriod" }, 400, request);
@@ -357,7 +294,7 @@ export async function updatePeriodName(request, env) {
 		// 更新該用戶所有記錄中的期間名稱
 		const result = await env.DB
 			.prepare("UPDATE attendance SET period = ? WHERE user_id = ? AND period = ?")
-			.bind(newPeriod, session.user_id, oldPeriod)
+			.bind(newPeriod, auth.session.user_id, oldPeriod)
 			.run();
 
 		return jsonResponse({

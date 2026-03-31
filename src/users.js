@@ -1,40 +1,9 @@
 // users.js - 用戶資料管理相關的 API 處理函數
 
-import { corsHeaders, jsonResponse } from './utils.js';
-
-// 獲取當前用戶 ID 的輔助函數
-async function getCurrentUserId(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return null;
-
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return null;
-	}
-
-	return session.user_id;
-}
-
-// 獲取用戶角色
-async function getUserRole(userId, env) {
-	const user = await env.DB
-		.prepare("SELECT role FROM users WHERE id = ?")
-		.bind(userId)
-		.first();
-	return user?.role;
-}
+import { jsonResponse } from './utils.js';
 
 // 獲取當前用戶資料
-export async function handleGetCurrentUser(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleGetCurrentUser(request, env, auth) {
 	try {
 		const user = await env.DB
 			.prepare(`
@@ -43,7 +12,7 @@ export async function handleGetCurrentUser(request, env) {
 				       font_size_scale, show_working_staff_card, created_at
 				FROM users WHERE id = ?
 			`)
-			.bind(userId)
+			.bind(auth.session.user_id)
 			.first();
 
 		if (!user) {
@@ -60,14 +29,6 @@ export async function handleGetCurrentUser(request, env) {
 
 // 獲取所有用戶（僅管理員）
 export async function handleGetAllUsers(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
-	const role = await getUserRole(userId, env);
-	if (role !== 'admin') {
-		return jsonResponse({ error: "Forbidden: Admin only" }, 403, request);
-	}
-
 	try {
 		const users = await env.DB
 			.prepare(`
@@ -88,14 +49,6 @@ export async function handleGetAllUsers(request, env) {
 
 // 根據 ID 獲取用戶資料（僅管理員）
 export async function handleGetUserById(request, env, targetUserId) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
-	const role = await getUserRole(userId, env);
-	if (role !== 'admin') {
-		return jsonResponse({ error: "Forbidden: Admin only" }, 403, request);
-	}
-
 	try {
 		const user = await env.DB
 			.prepare(`
@@ -119,10 +72,7 @@ export async function handleGetUserById(request, env, targetUserId) {
 }
 
 // 更新當前用戶資料
-export async function handleUpdateCurrentUser(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleUpdateCurrentUser(request, env, auth) {
 	try {
 		const body = await request.json().catch(() => null);
 		if (!body) {
@@ -145,7 +95,7 @@ export async function handleUpdateCurrentUser(request, env) {
 			return jsonResponse({ error: "No valid fields to update" }, 400, request);
 		}
 
-		values.push(userId);
+		values.push(auth.session.user_id);
 
 		await env.DB
 			.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`)
@@ -161,10 +111,7 @@ export async function handleUpdateCurrentUser(request, env) {
 }
 
 // 更新用戶 UI 偏好設定（字體大小、顯示工作員工卡片）
-export async function handleUpdateUiPreferences(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleUpdateUiPreferences(request, env, auth) {
 	try {
 		const body = await request.json().catch(() => null);
 		if (!body) {
@@ -192,7 +139,7 @@ export async function handleUpdateUiPreferences(request, env) {
 			return jsonResponse({ error: "No valid fields to update" }, 400, request);
 		}
 
-		values.push(userId);
+		values.push(auth.session.user_id);
 
 		await env.DB
 			.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`)
@@ -208,10 +155,7 @@ export async function handleUpdateUiPreferences(request, env) {
 }
 
 // 更新用戶主題模式
-export async function handleUpdateThemeMode(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleUpdateThemeMode(request, env, auth) {
 	try {
 		const { theme_mode } = await request.json();
 
@@ -223,7 +167,7 @@ export async function handleUpdateThemeMode(request, env) {
 
 		await env.DB
 			.prepare("UPDATE users SET theme_mode = ? WHERE id = ?")
-			.bind(theme_mode, userId)
+			.bind(theme_mode, auth.session.user_id)
 			.run();
 
 		return jsonResponse({ ok: true, message: "Theme mode updated successfully" }, 200, request);

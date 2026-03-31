@@ -1,44 +1,9 @@
 // discovery.js - 裝置管理相關的 API 處理函數
 
-import { corsHeaders, jsonResponse } from './utils.js';
-
-// 獲取當前用戶 ID 的輔助函數
-async function getCurrentUserId(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	console.log('getCurrentUserId - Cookie:', cookie);
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) {
-		console.log('getCurrentUserId - No session_id in cookie');
-		return null;
-	}
-
-	const sessionId = match[1];
-	console.log('getCurrentUserId - session_id:', sessionId);
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-	console.log('getCurrentUserId - session from DB:', session);
-
-	if (!session) {
-		console.log('getCurrentUserId - Session not found in DB');
-		return null;
-	}
-
-	if (new Date(session.expires_at) < new Date()) {
-		console.log('getCurrentUserId - Session expired:', session.expires_at, 'vs now:', new Date().toISOString());
-		return null;
-	}
-
-	console.log('getCurrentUserId - Valid session, user_id:', session.user_id);
-	return session.user_id;
-}
+import { jsonResponse } from './utils.js';
 
 // 保存設備配置
-export async function handleSaveConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleSaveConfiguration(request, env, auth) {
 	try {
 		const body = await request.json().catch(() => null);
 		if (!body?.name || !body?.devices) {
@@ -67,10 +32,10 @@ export async function handleSaveConfiguration(request, env) {
 			// 創建新配置
 			await env.DB
 				.prepare(`
-					INSERT INTO device_configurations (user_id, name, devices)
-					VALUES (?, ?, ?)
-				`)
-				.bind(userId, name, JSON.stringify(devices))
+				INSERT INTO device_configurations (user_id, name, devices)
+				VALUES (?, ?, ?)
+			`)
+				.bind(auth.session.user_id, name, JSON.stringify(devices))
 				.run();
 		}
 
@@ -84,9 +49,6 @@ export async function handleSaveConfiguration(request, env) {
 
 // 加載設備配置
 export async function handleLoadConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
@@ -115,9 +77,6 @@ export async function handleLoadConfiguration(request, env) {
 
 // 獲取配置列表
 export async function handleGetConfigurations(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
 	try {
 		// 獲取所有配置並關聯用戶資訊
 		const configs = await env.DB
@@ -147,9 +106,6 @@ export async function handleGetConfigurations(request, env) {
 
 // 刪除配置
 export async function handleDeleteConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
@@ -277,10 +233,6 @@ export async function handleGetDeviceConfigs(request, env) {
 export async function handleAddDeviceConfigOption(request, env) {
 	try {
 		const body = await request.json();
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		// Validate payload shape
 		const validation = validateDeviceConfigPayload(body);
 		if (!validation.ok) {
@@ -319,11 +271,6 @@ export async function handleUpdateDeviceConfigOption(request, env) {
 		if (!id) {
 			return jsonResponse({ error: 'Missing id' }, 400, request);
 		}
-
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 
 		const body = await request.json();
 		const { brand, model, types, channels, channelMap } = body;
@@ -385,10 +332,6 @@ export async function handleUpdateDeviceConfigOption(request, env) {
 // 刪除裝置設定選項
 export async function handleDeleteDeviceConfigOption(request, env) {
 	try {
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {

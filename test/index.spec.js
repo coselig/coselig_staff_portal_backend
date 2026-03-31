@@ -2,19 +2,32 @@ import { env, createExecutionContext, waitOnExecutionContext, SELF } from 'cloud
 import { describe, it, expect } from 'vitest';
 import worker from '../src';
 
-describe('Hello World worker', () => {
-	it('responds with Hello World! (unit style)', async () => {
-		const request = new Request('http://example.com');
+describe('Worker routes', () => {
+	it('returns health status for /api/health (unit style)', async () => {
+		const request = new Request('http://example.com/api/health');
 		// Create an empty context to pass to `worker.fetch()`.
 		const ctx = createExecutionContext();
 		const response = await worker.fetch(request, env, ctx);
 		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
 		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+		expect(response.status).toBe(200);
+		expect(await response.json()).toMatchInlineSnapshot(`
+			{
+			  "message": "Worker is alive",
+			  "ok": true,
+			}
+		`);
 	});
 
-	it('responds with Hello World! (integration style)', async () => {
-		const response = await SELF.fetch('http://example.com');
+	it('requires login for /api/me (integration style)', async () => {
+		const response = await SELF.fetch('http://example.com/api/me');
+		expect(response.status).toBe(401);
+		expect(await response.text()).toMatchInlineSnapshot(`"{"error":"Not logged in"}"`);
+	});
+
+	it('returns not found for unknown routes (integration style)', async () => {
+		const response = await SELF.fetch('http://example.com/does-not-exist');
+		expect(response.status).toBe(404);
 		expect(await response.text()).toMatchInlineSnapshot(`"{"error":"Not Found"}"`);
 	});
 });

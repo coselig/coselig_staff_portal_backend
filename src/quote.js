@@ -17,10 +17,6 @@ export async function handleGetSwitchOptions(request, env) {
 export async function handleAddSwitchOption(request, env) {
 	try {
 		const body = await request.json();
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.name || typeof body.count !== 'number') {
 			return jsonResponse({ error: 'Missing required fields: name, count' }, 400, request);
 		}
@@ -40,10 +36,6 @@ export async function handleAddSwitchOption(request, env) {
 export async function handleUpdateSwitchOption(request, env) {
 	try {
 		const body = await request.json();
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.id) {
 			return jsonResponse({ error: 'Missing id' }, 400, request);
 		}
@@ -62,10 +54,6 @@ export async function handleUpdateSwitchOption(request, env) {
 // 刪除開關選項
 export async function handleDeleteSwitchOption(request, env) {
 	try {
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {
@@ -135,10 +123,6 @@ export async function handleGetPowerSupplyOptions(request, env) {
 export async function handleAddPowerSupplyOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.name || body?.wattage === undefined || body?.type === undefined || body?.inputVoltage === undefined) {
 			return jsonResponse({ error: 'Missing required fields: name, wattage, type, inputVoltage' }, 400, request);
 		}
@@ -196,11 +180,6 @@ export async function handleUpdatePowerSupplyOption(request, env) {
 		if (!id) {
 			return jsonResponse({ error: 'Power supply ID is required' }, 400, request);
 		}
-
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 
 		const body = await request.json().catch(() => null);
 		if (!body) {
@@ -297,10 +276,6 @@ export async function handleUpdatePowerSupplyOption(request, env) {
 // 刪除電源供應器選項
 export async function handleDeletePowerSupplyOption(request, env) {
 	try {
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 		if (!id) {
@@ -324,45 +299,10 @@ export async function handleDeletePowerSupplyOption(request, env) {
 }
 // quote.js - 估價系統相關的 API 處理函數
 
-import { corsHeaders, jsonResponse } from './utils.js';
-
-// 獲取當前用戶 ID 的輔助函數
-async function getCurrentUserId(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	console.log('getCurrentUserId - Cookie:', cookie);
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) {
-		console.log('getCurrentUserId - No session_id in cookie');
-		return null;
-	}
-
-	const sessionId = match[1];
-	console.log('getCurrentUserId - session_id:', sessionId);
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-	console.log('getCurrentUserId - session from DB:', session);
-
-	if (!session) {
-		console.log('getCurrentUserId - Session not found in DB');
-		return null;
-	}
-
-	if (new Date(session.expires_at) < new Date()) {
-		console.log('getCurrentUserId - Session expired:', session.expires_at, 'vs now:', new Date().toISOString());
-		return null;
-	}
-
-	console.log('getCurrentUserId - Valid session, user_id:', session.user_id);
-	return session.user_id;
-}
+import { jsonResponse } from './utils.js';
 
 // 保存估價配置
-export async function handleSaveQuoteConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleSaveQuoteConfiguration(request, env, auth) {
 	try {
 		const body = await request.json().catch(() => null);
 		if (!body?.name || !body?.quoteData) {
@@ -391,10 +331,10 @@ export async function handleSaveQuoteConfiguration(request, env) {
 			// 創建新配置
 			await env.DB
 				.prepare(`
-					INSERT INTO quote_configurations (user_id, name, quote_data, customer_user_id, project_name, project_address)
-					VALUES (?, ?, ?, ?, ?, ?)
-				`)
-				.bind(userId, name, JSON.stringify(quoteData), customerUserId || null, projectName || null, projectAddress || null)
+				INSERT INTO quote_configurations (user_id, name, quote_data, customer_user_id, project_name, project_address)
+				VALUES (?, ?, ?, ?, ?, ?)
+			`)
+				.bind(auth.session.user_id, name, JSON.stringify(quoteData), customerUserId || null, projectName || null, projectAddress || null)
 				.run();
 		}
 
@@ -406,11 +346,7 @@ export async function handleSaveQuoteConfiguration(request, env) {
 	}
 }
 
-// 加載估價配置
-export async function handleLoadQuoteConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleLoadQuoteConfiguration(request, env, auth) {
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
@@ -419,18 +355,12 @@ export async function handleLoadQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		// 檢查當前用戶角色
-		const user = await env.DB
-			.prepare("SELECT role FROM users WHERE id = ?")
-			.bind(userId)
-			.first();
-
 		let config;
-		if (user && user.role === 'customer') {
+		if (auth.user.role === 'customer') {
 			// 客戶只能載入屬於自己的配置
 			config = await env.DB
 				.prepare("SELECT quote_data FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
-				.bind(name, userId)
+				.bind(name, auth.session.user_id)
 				.first();
 		} else {
 			config = await env.DB
@@ -452,20 +382,10 @@ export async function handleLoadQuoteConfiguration(request, env) {
 	}
 }
 
-// 獲取估價配置列表
-export async function handleGetQuoteConfigurations(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleGetQuoteConfigurations(request, env, auth) {
 	try {
-		// 檢查當前用戶角色
-		const user = await env.DB
-			.prepare("SELECT role FROM users WHERE id = ?")
-			.bind(userId)
-			.first();
-
 		let configs;
-		if (user && user.role === 'customer') {
+		if (auth.user.role === 'customer') {
 			// 客戶只能看到自己的估價配置
 			configs = await env.DB
 				.prepare(`
@@ -491,7 +411,7 @@ export async function handleGetQuoteConfigurations(request, env) {
 					WHERE qc.customer_user_id = ?
 					ORDER BY qc.updated_at DESC
 				`)
-				.bind(userId)
+				.bind(auth.session.user_id)
 				.all();
 		} else {
 			// 員工/管理員可以看到所有配置
@@ -529,11 +449,7 @@ export async function handleGetQuoteConfigurations(request, env) {
 	}
 }
 
-// 刪除估價配置
-export async function handleDeleteQuoteConfiguration(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleDeleteQuoteConfiguration(request, env, auth) {
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
@@ -542,18 +458,12 @@ export async function handleDeleteQuoteConfiguration(request, env) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		// 檢查當前用戶角色
-		const user = await env.DB
-			.prepare("SELECT role FROM users WHERE id = ?")
-			.bind(userId)
-			.first();
-
 		let result;
-		if (user && user.role === 'customer') {
+		if (auth.user.role === 'customer') {
 			// 客戶只能刪除屬於自己的配置
 			result = await env.DB
 				.prepare("DELETE FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
-				.bind(name, userId)
+				.bind(name, auth.session.user_id)
 				.run();
 		} else {
 			result = await env.DB
@@ -605,10 +515,6 @@ export async function handleGetModuleOptions(request, env) {
 export async function handleAddModuleOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.model || body.channelCount === undefined || body.maxAmperePerChannel === undefined || body.maxAmpereTotal === undefined) {
 			return jsonResponse({ error: "Missing required fields: model, channelCount, maxAmperePerChannel, maxAmpereTotal" }, 400, request);
 		}
@@ -651,10 +557,6 @@ export async function handleUpdateModuleOption(request, env) {
 			return jsonResponse({ error: "Module ID is required" }, 400, request);
 		}
 
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const body = await request.json().catch(() => null);
 		if (!body) {
 			return jsonResponse({ error: "Request body is required" }, 400, request);
@@ -739,10 +641,6 @@ export async function handleUpdateModuleOption(request, env) {
 // 刪除模組選項
 export async function handleDeleteModuleOption(request, env) {
 	try {
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 
@@ -798,10 +696,6 @@ export async function handleGetFixtureTypeOptions(request, env) {
 export async function handleAddFixtureTypeOption(request, env) {
 	try {
 		const body = await request.json().catch(() => null);
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		if (!body?.type) {
 			return jsonResponse({ error: "Missing required field: type" }, 400, request);
 		}
@@ -843,10 +737,6 @@ export async function handleUpdateFixtureTypeOption(request, env) {
 			return jsonResponse({ error: "Fixture type ID is required" }, 400, request);
 		}
 
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const body = await request.json().catch(() => null);
 		if (!body) {
 			return jsonResponse({ error: "Request body is required" }, 400, request);
@@ -922,10 +812,6 @@ export async function handleUpdateFixtureTypeOption(request, env) {
 // 刪除燈具類型選項
 export async function handleDeleteFixtureTypeOption(request, env) {
 	try {
-		const userId = await getCurrentUserId(request, env);
-		if (!userId) return jsonResponse({ error: 'Not logged in' }, 401, request);
-		const user = await env.DB.prepare("SELECT role FROM users WHERE id = ?").bind(userId).first();
-		if (user && user.role === 'customer') return jsonResponse({ error: 'Forbidden' }, 403, request);
 		const url = new URL(request.url);
 		const id = url.searchParams.get('id');
 

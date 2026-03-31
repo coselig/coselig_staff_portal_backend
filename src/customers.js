@@ -1,31 +1,9 @@
 // customers.js - 客戶資料管理相關的 API 處理函數
 
-import { corsHeaders, jsonResponse } from './utils.js';
-
-// 獲取當前用戶 ID 的輔助函數
-async function getCurrentUserId(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return null;
-
-	const sessionId = match[1];
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
-
-	if (!session || new Date(session.expires_at) < new Date()) {
-		return null;
-	}
-
-	return session.user_id;
-}
+import { jsonResponse } from './utils.js';
 
 // 創建新客戶
-export async function handleCreateCustomer(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleCreateCustomer(request, env, auth) {
 	try {
 		const body = await request.json();
 		const {
@@ -38,7 +16,7 @@ export async function handleCreateCustomer(request, env) {
 		// 檢查用戶是否已經有客戶記錄
 		const existingCustomer = await env.DB
 			.prepare("SELECT id FROM customers WHERE user_id = ?")
-			.bind(userId)
+			.bind(auth.session.user_id)
 			.first();
 
 		if (existingCustomer) {
@@ -53,7 +31,7 @@ export async function handleCreateCustomer(request, env) {
 				) VALUES (?, ?, ?, ?, ?)
 			`)
 			.bind(
-				userId, company?.trim(), tax_id?.trim(), contact_person?.trim(), notes?.trim()
+				auth.session.user_id, company?.trim(), tax_id?.trim(), contact_person?.trim(), notes?.trim()
 			)
 			.run();
 
@@ -70,19 +48,10 @@ export async function handleCreateCustomer(request, env) {
 }
 
 // 獲取所有客戶（員工/管理員看到全部，客戶只看到自己的）
-export async function handleGetCustomers(request, env) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleGetCustomers(request, env, auth) {
 	try {
-		// 檢查當前用戶角色
-		const user = await env.DB
-			.prepare("SELECT role FROM users WHERE id = ?")
-			.bind(userId)
-			.first();
-
 		let customers;
-		if (user && user.role !== 'customer') {
+		if (auth.user.role !== 'customer') {
 			// 員工/管理員：返回所有客戶
 			customers = await env.DB
 				.prepare(`
@@ -108,7 +77,7 @@ export async function handleGetCustomers(request, env) {
 					WHERE c.user_id = ?
 					ORDER BY c.created_at DESC
 				`)
-				.bind(userId)
+				.bind(auth.session.user_id)
 				.all();
 		}
 
@@ -121,10 +90,7 @@ export async function handleGetCustomers(request, env) {
 }
 
 // 根據 ID 獲取客戶
-export async function handleGetCustomerById(request, env, customerId) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleGetCustomerById(request, env, customerId, auth) {
 	try {
 		const customer = await env.DB
 			.prepare(`
@@ -136,7 +102,7 @@ export async function handleGetCustomerById(request, env, customerId) {
 				JOIN users u ON c.user_id = u.id
 				WHERE c.id = ? AND c.user_id = ?
 			`)
-			.bind(customerId, userId)
+			.bind(customerId, auth.session.user_id)
 			.first();
 
 		if (!customer) {
@@ -152,10 +118,7 @@ export async function handleGetCustomerById(request, env, customerId) {
 }
 
 // 更新客戶
-export async function handleUpdateCustomer(request, env, customerId) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleUpdateCustomer(request, env, customerId, auth) {
 	try {
 		const body = await request.json();
 		const {
@@ -176,7 +139,7 @@ export async function handleUpdateCustomer(request, env, customerId) {
 			`)
 			.bind(
 				company?.trim(), tax_id?.trim(), contact_person?.trim(), notes?.trim(),
-				is_active ? 1 : 0, customerId, userId
+				is_active ? 1 : 0, customerId, auth.session.user_id
 			)
 			.run();
 
@@ -189,10 +152,7 @@ export async function handleUpdateCustomer(request, env, customerId) {
 }
 
 // 刪除客戶
-export async function handleDeleteCustomer(request, env, customerId) {
-	const userId = await getCurrentUserId(request, env);
-	if (!userId) return jsonResponse({ error: "Not logged in" }, 401, request);
-
+export async function handleDeleteCustomer(request, env, customerId, auth) {
 	try {
 		// 先查詢該客戶的 user_id
 		const customer = await env.DB
@@ -220,7 +180,7 @@ export async function handleDeleteCustomer(request, env, customerId) {
 		// 刪除客戶
 		await env.DB
 			.prepare("DELETE FROM customers WHERE id = ? AND user_id = ?")
-			.bind(customerId, userId)
+			.bind(customerId, auth.session.user_id)
 			.run();
 
 		return jsonResponse({ ok: true, message: "Customer deleted successfully" }, 200, request);

@@ -1,4 +1,5 @@
 import { jsonResponse, generateSessionId, setCookie, corsHeaders } from './utils.js';
+import { extractSessionId } from './session.js';
 
 export async function handleGoogleLogin(request, env) {
 	const body = await request.json().catch(() => null);
@@ -122,26 +123,14 @@ export async function handleGoogleLogin(request, env) {
 	});
 }
 
-export async function handleMe(request, env) {
+export async function handleMe(request, env, auth) {
 	const cookie = request.headers.get("Cookie") || "";
 	console.log('handleMe - Cookie header:', cookie);
 	console.log('handleMe - All headers:', JSON.stringify([...request.headers.entries()]));
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) {
-		console.log('handleMe - No session_id found in cookie');
-		return jsonResponse({ error: "Not logged in" }, 401, request);
-	}
-	const sessionId = match[1];
+	const sessionId = auth.session.id;
 	console.log('handleMe - Found session_id:', sessionId);
-	const session = await env.DB
-		.prepare("SELECT user_id, expires_at FROM sessions WHERE id = ?")
-		.bind(sessionId)
-		.first();
+	const session = auth.session;
 	console.log('handleMe - Session from DB:', session);
-	if (!session || new Date(session.expires_at) < new Date()) {
-		console.log('handleMe - Session expired or not found');
-		return jsonResponse({ error: "Session expired" }, 401, request);
-	}
 	const user = await env.DB
 		.prepare("SELECT id, name, chinese_name, email, role, theme_mode, font_size_scale, show_working_staff_card FROM users WHERE id = ?")
 		.bind(session.user_id)
@@ -154,10 +143,8 @@ export async function handleMe(request, env) {
 }
 
 export async function handleLogout(request, env) {
-	const cookie = request.headers.get("Cookie") || "";
-	const match = cookie.match(/session_id=([a-zA-Z0-9-]+)/);
-	if (!match) return jsonResponse({ error: "Not logged in" }, 401, request);
-	const sessionId = match[1];
+	const sessionId = extractSessionId(request);
+	if (!sessionId) return jsonResponse({ error: "Not logged in" }, 401, request);
 	await env.DB.prepare("DELETE FROM sessions WHERE id = ?").bind(sessionId).run();
 	return new Response(JSON.stringify({ ok: true }), {
 		status: 200,
