@@ -300,6 +300,15 @@ export async function handleDeletePowerSupplyOption(request, env) {
 // quote.js - 估價系統相關的 API 處理函數
 
 import { jsonResponse } from './utils.js';
+import { broadcastQuoteConfigurationsUpdate } from './quote_sync_hub.js';
+
+function collectQuoteSyncUserIds(...values) {
+	return [...new Set(
+		values
+			.filter((value) => value !== null && value !== undefined && String(value).trim() !== '')
+			.map((value) => String(value))
+	)];
+}
 
 // 保存估價配置
 export async function handleSaveQuoteConfiguration(request, env, auth) {
@@ -309,11 +318,18 @@ export async function handleSaveQuoteConfiguration(request, env, auth) {
 			return jsonResponse({ error: "Missing required fields: name and quoteData" }, 400, request);
 		}
 
-		const { name, quoteData, customerUserId, projectName, projectAddress } = body;
+		const {
+			name,
+			quoteData,
+			customerUserId,
+			projectName,
+			projectAddress,
+			broadcastListUpdate = true,
+		} = body;
 
 		// 檢查是否已存在相同名稱的配置（不限制 user_id）
 		const existing = await env.DB
-			.prepare("SELECT id FROM quote_configurations WHERE name = ?")
+			.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ?")
 			.bind(name)
 			.first();
 
@@ -338,7 +354,33 @@ export async function handleSaveQuoteConfiguration(request, env, auth) {
 				.run();
 		}
 
-		return jsonResponse({ ok: true, message: "Quote configuration saved successfully" }, 200, request);
+		const savedConfig = await env.DB
+			.prepare("SELECT id, name, user_id, customer_user_id FROM quote_configurations WHERE name = ?")
+			.bind(name)
+			.first();
+
+		if (broadcastListUpdate !== false && savedConfig) {
+			await broadcastQuoteConfigurationsUpdate(env, {
+				action: existing ? 'updated' : 'created',
+				quoteId: savedConfig.id,
+				quoteName: savedConfig.name,
+				userIds: collectQuoteSyncUserIds(
+					auth.session.user_id,
+					existing?.user_id,
+					existing?.customer_user_id,
+					savedConfig.user_id,
+					savedConfig.customer_user_id,
+					customerUserId,
+				),
+			});
+		}
+
+		return jsonResponse({
+			ok: true,
+			message: "Quote configuration saved successfully",
+			configurationId: savedConfig?.id ?? existing?.id ?? null,
+			name: savedConfig?.name ?? name,
+		}, 200, request);
 
 	} catch (err) {
 		console.error('Save quote configuration error:', err);
@@ -458,14 +500,23 @@ export async function handleDeleteQuoteConfiguration(request, env, auth) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
+		let existing;
 		let result;
 		if (auth.user.role === 'customer') {
 			// 客戶只能刪除屬於自己的配置
+				existing = await env.DB
+					.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
+					.bind(name, auth.session.user_id)
+					.first();
 			result = await env.DB
 				.prepare("DELETE FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
 				.bind(name, auth.session.user_id)
 				.run();
 		} else {
+				existing = await env.DB
+					.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ?")
+					.bind(name)
+					.first();
 			result = await env.DB
 				.prepare("DELETE FROM quote_configurations WHERE name = ?")
 				.bind(name)
@@ -475,6 +526,17 @@ export async function handleDeleteQuoteConfiguration(request, env, auth) {
 		if (result.changes === 0) {
 			return jsonResponse({ error: "Configuration not found" }, 404, request);
 		}
+
+		await broadcastQuoteConfigurationsUpdate(env, {
+			action: 'deleted',
+			quoteId: existing?.id ?? null,
+			quoteName: name,
+			userIds: collectQuoteSyncUserIds(
+				auth.session.user_id,
+				existing?.user_id,
+				existing?.customer_user_id,
+			),
+		});
 
 		return jsonResponse({ ok: true, message: "Quote configuration deleted successfully" }, 200, request);
 

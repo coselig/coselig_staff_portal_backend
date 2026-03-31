@@ -11,6 +11,10 @@
 			{
 				"name": "WORKING_STAFF_HUB",
 				"class_name": "WorkingStaffHub"
+			},
+			{
+				"name": "QUOTE_SYNC_HUB",
+				"class_name": "QuoteSyncHub"
 			}
 		]
 	},
@@ -19,6 +23,12 @@
 			"tag": "v1-working-staff-hub",
 			"new_sqlite_classes": [
 				"WorkingStaffHub"
+			]
+		},
+		{
+			"tag": "v2-quote-sync-hub",
+			"new_sqlite_classes": [
+				"QuoteSyncHub"
 			]
 		}
 	],

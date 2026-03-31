@@ -12,6 +12,7 @@ import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdat
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { requireAdmin, requireNonCustomer, requireSession, requireUser } from './session.js';
 import { WorkingStaffHub, broadcastWorkingStaffUpdate, handleWorkingStaffSocket } from './working_staff_hub.js';
+import { QuoteSyncHub, handleQuoteSyncSocket } from './quote_sync_hub.js';
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
 
 // Handler functions
@@ -104,6 +105,7 @@ const routes = {
 		"/api/employees": withGuard(requireAdmin, handleEmployees),
 		"/api/working-staff": withGuard(requireSession, handleWorkingStaff),
 		"/api/working-staff/ws": withGuard(requireSession, handleWorkingStaffSocket),
+		"/api/quote-sync/ws": withGuard(requireUser, handleQuoteSyncSocket),
 		"/api/attendance/month": withGuard(requireUser, getMonth),
 		"/api/configurations": withGuard(requireSession, handleGetConfigurations),
 		"/api/configurations/load": withGuard(requireSession, handleLoadConfiguration),
@@ -160,7 +162,7 @@ const routes = {
 	},
 };
 
-export { WorkingStaffHub };
+export { QuoteSyncHub, WorkingStaffHub };
 
 export default {
 	async fetch(request, env) {
