@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS quote_configurations (
   customer_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
   project_name TEXT, -- 項目名稱 (quote-specific)
   project_address TEXT, -- 項目地址 (quote-specific)
+  is_published INTEGER NOT NULL DEFAULT 0, -- 是否已發送給客戶
+  sent_at TEXT, -- 發送時間
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );

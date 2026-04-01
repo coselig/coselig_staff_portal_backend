@@ -302,6 +302,8 @@ export async function handleDeletePowerSupplyOption(request, env) {
 import { jsonResponse } from './utils.js';
 import { broadcastQuoteConfigurationsUpdate } from './quote_sync_hub.js';
 
+let ensureQuotePublicationColumnsPromise = null;
+
 function collectQuoteSyncUserIds(...values) {
 	return [...new Set(
 		values
@@ -310,9 +312,84 @@ function collectQuoteSyncUserIds(...values) {
 	)];
 }
 
+function hasOwnProperty(object, key) {
+	return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function normalizeNullableText(value) {
+	const normalized = String(value ?? '').trim();
+	return normalized || null;
+}
+
+function normalizeBooleanFlag(value) {
+	if (value === true || value === 1 || value === '1') {
+		return true;
+	}
+
+	if (typeof value === 'string') {
+		const normalized = value.trim().toLowerCase();
+		return normalized === 'true';
+	}
+
+	return false;
+}
+
+function getCurrentTaipeiTimestamp() {
+	const now = new Date();
+	const taipeiTime = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+	return taipeiTime.toISOString().slice(0, 19).replace('T', ' ');
+}
+
+async function addQuoteConfigurationColumn(env, columnName, statement) {
+	try {
+		await env.DB.prepare(statement).run();
+	} catch (error) {
+		const message = String(error?.message ?? error);
+		if (!message.includes(`duplicate column name: ${columnName}`)) {
+			throw error;
+		}
+	}
+}
+
+async function ensureQuoteConfigurationPublicationColumns(env) {
+	if (ensureQuotePublicationColumnsPromise) {
+		return ensureQuotePublicationColumnsPromise;
+	}
+
+	ensureQuotePublicationColumnsPromise = (async () => {
+		const tableInfo = await env.DB.prepare('PRAGMA table_info(quote_configurations)').all();
+		const columnNames = new Set(
+			(tableInfo.results || []).map((column) => String(column.name ?? ''))
+		);
+
+		if (!columnNames.has('is_published')) {
+			await addQuoteConfigurationColumn(
+				env,
+				'is_published',
+				'ALTER TABLE quote_configurations ADD COLUMN is_published INTEGER NOT NULL DEFAULT 0'
+			);
+		}
+
+		if (!columnNames.has('sent_at')) {
+			await addQuoteConfigurationColumn(
+				env,
+				'sent_at',
+				'ALTER TABLE quote_configurations ADD COLUMN sent_at TEXT'
+			);
+		}
+	})().catch((error) => {
+		ensureQuotePublicationColumnsPromise = null;
+		throw error;
+	});
+
+	return ensureQuotePublicationColumnsPromise;
+}
+
 // 保存估價配置
 export async function handleSaveQuoteConfiguration(request, env, auth) {
 	try {
+		await ensureQuoteConfigurationPublicationColumns(env);
+
 		const body = await request.json().catch(() => null);
 		if (!body?.name || !body?.quoteData) {
 			return jsonResponse({ error: "Missing required fields: name and quoteData" }, 400, request);
@@ -325,43 +402,117 @@ export async function handleSaveQuoteConfiguration(request, env, auth) {
 			projectName,
 			projectAddress,
 			broadcastListUpdate = true,
+			publishQuote,
 		} = body;
+		const shouldPublish = normalizeBooleanFlag(publishQuote);
+		const nextSentAtTimestamp = shouldPublish ? getCurrentTaipeiTimestamp() : null;
+		const hasCustomerUserId = hasOwnProperty(body, 'customerUserId');
+		const hasProjectName = hasOwnProperty(body, 'projectName');
+		const hasProjectAddress = hasOwnProperty(body, 'projectAddress');
 
 		// 檢查是否已存在相同名稱的配置（不限制 user_id）
 		const existing = await env.DB
-			.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ?")
+			.prepare(`
+				SELECT
+					id,
+					user_id,
+					customer_user_id,
+					project_name,
+					project_address,
+					is_published,
+					sent_at
+				FROM quote_configurations
+				WHERE name = ?
+			`)
 			.bind(name)
 			.first();
+
+		if (
+			existing &&
+			auth.user.role === 'customer' &&
+			Number(existing.user_id) !== Number(auth.session.user_id)
+		) {
+			return jsonResponse({ error: 'Customers can only edit their own quote drafts' }, 403, request);
+		}
+
+		const nextCustomerUserId = hasCustomerUserId
+			? (customerUserId || null)
+			: (existing?.customer_user_id ?? null);
+		const nextProjectName = hasProjectName
+			? normalizeNullableText(projectName)
+			: (existing?.project_name ?? null);
+		const nextProjectAddress = hasProjectAddress
+			? normalizeNullableText(projectAddress)
+			: (existing?.project_address ?? null);
+		const nextIsPublished = shouldPublish
+			? 1
+			: Number(existing?.is_published ?? 0) === 1
+				? 1
+				: 0;
+		const nextSentAt = shouldPublish
+			? nextSentAtTimestamp
+			: (existing?.sent_at ?? null);
 
 		if (existing) {
 			// 更新現有配置（任何人都可以更新）
 			await env.DB
 				.prepare(`
 					UPDATE quote_configurations
-					SET quote_data = ?, customer_user_id = ?, project_name = ?, project_address = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+					SET quote_data = ?, customer_user_id = ?, project_name = ?, project_address = ?, is_published = ?, sent_at = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
 					WHERE name = ?
 				`)
-				.bind(JSON.stringify(quoteData), customerUserId || null, projectName || null, projectAddress || null, name)
+				.bind(
+					JSON.stringify(quoteData),
+					nextCustomerUserId,
+					nextProjectName,
+					nextProjectAddress,
+					nextIsPublished,
+					nextSentAt,
+					name,
+				)
 				.run();
 		} else {
 			// 創建新配置
 			await env.DB
 				.prepare(`
-				INSERT INTO quote_configurations (user_id, name, quote_data, customer_user_id, project_name, project_address)
-				VALUES (?, ?, ?, ?, ?, ?)
+				INSERT INTO quote_configurations (user_id, name, quote_data, customer_user_id, project_name, project_address, is_published, sent_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 			`)
-				.bind(auth.session.user_id, name, JSON.stringify(quoteData), customerUserId || null, projectName || null, projectAddress || null)
+				.bind(
+					auth.session.user_id,
+					name,
+					JSON.stringify(quoteData),
+					nextCustomerUserId,
+					nextProjectName,
+					nextProjectAddress,
+					nextIsPublished,
+					nextSentAt,
+				)
 				.run();
 		}
 
 		const savedConfig = await env.DB
-			.prepare("SELECT id, name, user_id, customer_user_id FROM quote_configurations WHERE name = ?")
+			.prepare(`
+				SELECT
+					id,
+					name,
+					user_id,
+					customer_user_id,
+					project_name,
+					project_address,
+					is_published,
+					sent_at,
+					created_at,
+					updated_at
+				FROM quote_configurations
+				WHERE name = ?
+			`)
 			.bind(name)
 			.first();
 
 		if (broadcastListUpdate !== false && savedConfig) {
 			await broadcastQuoteConfigurationsUpdate(env, {
-				action: existing ? 'updated' : 'created',
+				action: shouldPublish ? 'published' : existing ? 'updated' : 'created',
 				quoteId: savedConfig.id,
 				quoteName: savedConfig.name,
 				userIds: collectQuoteSyncUserIds(
@@ -380,6 +531,13 @@ export async function handleSaveQuoteConfiguration(request, env, auth) {
 			message: "Quote configuration saved successfully",
 			configurationId: savedConfig?.id ?? existing?.id ?? null,
 			name: savedConfig?.name ?? name,
+			customerUserId: savedConfig?.customer_user_id ?? customerUserId ?? null,
+			projectName: savedConfig?.project_name ?? projectName ?? null,
+			projectAddress: savedConfig?.project_address ?? projectAddress ?? null,
+			isPublished: Number(savedConfig?.is_published ?? nextIsPublished) === 1,
+			sentAt: savedConfig?.sent_at ?? nextSentAt ?? null,
+			createdAt: savedConfig?.created_at ?? null,
+			updatedAt: savedConfig?.updated_at ?? null,
 		}, 200, request);
 
 	} catch (err) {
@@ -390,6 +548,8 @@ export async function handleSaveQuoteConfiguration(request, env, auth) {
 
 export async function handleLoadQuoteConfiguration(request, env, auth) {
 	try {
+		await ensureQuoteConfigurationPublicationColumns(env);
+
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
 
@@ -399,10 +559,16 @@ export async function handleLoadQuoteConfiguration(request, env, auth) {
 
 		let config;
 		if (auth.user.role === 'customer') {
-			// 客戶只能載入屬於自己的配置
+			// 客戶可以載入自己建立的草稿，或是已發送給自己的報價
 			config = await env.DB
-				.prepare("SELECT quote_data FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
-				.bind(name, auth.session.user_id)
+				.prepare(`
+					SELECT quote_data
+					FROM quote_configurations
+					WHERE name = ?
+						AND customer_user_id = ?
+						AND (is_published = 1 OR user_id = ?)
+				`)
+				.bind(name, auth.session.user_id, auth.session.user_id)
 				.first();
 		} else {
 			config = await env.DB
@@ -426,9 +592,11 @@ export async function handleLoadQuoteConfiguration(request, env, auth) {
 
 export async function handleGetQuoteConfigurations(request, env, auth) {
 	try {
+		await ensureQuoteConfigurationPublicationColumns(env);
+
 		let configs;
 		if (auth.user.role === 'customer') {
-			// 客戶只能看到自己的估價配置
+			// 客戶只能看到自己建立的草稿，或已發送給自己的報價
 			configs = await env.DB
 				.prepare(`
 					SELECT
@@ -439,6 +607,8 @@ export async function handleGetQuoteConfigurations(request, env, auth) {
 						qc.customer_user_id,
 						qc.project_name,
 						qc.project_address,
+						qc.is_published,
+						qc.sent_at,
 						qc.created_at,
 						qc.updated_at,
 						u.chinese_name,
@@ -451,9 +621,10 @@ export async function handleGetQuoteConfigurations(request, env, auth) {
 					LEFT JOIN users cu ON qc.customer_user_id = cu.id
 					LEFT JOIN customers c ON c.user_id = qc.customer_user_id
 					WHERE qc.customer_user_id = ?
+						AND (qc.is_published = 1 OR qc.user_id = ?)
 					ORDER BY qc.updated_at DESC
 				`)
-				.bind(auth.session.user_id)
+				.bind(auth.session.user_id, auth.session.user_id)
 				.all();
 		} else {
 			// 員工/管理員可以看到所有配置
@@ -467,6 +638,8 @@ export async function handleGetQuoteConfigurations(request, env, auth) {
 						qc.customer_user_id,
 						qc.project_name,
 						qc.project_address,
+						qc.is_published,
+						qc.sent_at,
 						qc.created_at,
 						qc.updated_at,
 						u.chinese_name,
@@ -493,6 +666,8 @@ export async function handleGetQuoteConfigurations(request, env, auth) {
 
 export async function handleDeleteQuoteConfiguration(request, env, auth) {
 	try {
+		await ensureQuoteConfigurationPublicationColumns(env);
+
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
 
@@ -503,14 +678,14 @@ export async function handleDeleteQuoteConfiguration(request, env, auth) {
 		let existing;
 		let result;
 		if (auth.user.role === 'customer') {
-			// 客戶只能刪除屬於自己的配置
+			// 客戶只能刪除自己建立的配置，不能刪除員工發送的報價
 				existing = await env.DB
-					.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
-					.bind(name, auth.session.user_id)
+					.prepare("SELECT id, user_id, customer_user_id FROM quote_configurations WHERE name = ? AND customer_user_id = ? AND user_id = ?")
+					.bind(name, auth.session.user_id, auth.session.user_id)
 					.first();
 			result = await env.DB
-				.prepare("DELETE FROM quote_configurations WHERE name = ? AND customer_user_id = ?")
-				.bind(name, auth.session.user_id)
+				.prepare("DELETE FROM quote_configurations WHERE name = ? AND customer_user_id = ? AND user_id = ?")
+				.bind(name, auth.session.user_id, auth.session.user_id)
 				.run();
 		} else {
 				existing = await env.DB

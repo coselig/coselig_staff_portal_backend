@@ -28,13 +28,66 @@ function normalizeUserRole(value) {
 	return normalized || null;
 }
 
+let ensureQuotePublicationColumnsPromise = null;
+
+async function addQuoteConfigurationColumn(env, columnName, statement) {
+	try {
+		await env.DB.prepare(statement).run();
+	} catch (error) {
+		const message = String(error?.message ?? error);
+		if (!message.includes(`duplicate column name: ${columnName}`)) {
+			throw error;
+		}
+	}
+}
+
+async function ensureQuoteConfigurationPublicationColumns(env) {
+	if (ensureQuotePublicationColumnsPromise) {
+		return ensureQuotePublicationColumnsPromise;
+	}
+
+	ensureQuotePublicationColumnsPromise = (async () => {
+		const tableInfo = await env.DB.prepare('PRAGMA table_info(quote_configurations)').all();
+		const columnNames = new Set(
+			(tableInfo.results || []).map((column) => String(column.name ?? ''))
+		);
+
+		if (!columnNames.has('is_published')) {
+			await addQuoteConfigurationColumn(
+				env,
+				'is_published',
+				'ALTER TABLE quote_configurations ADD COLUMN is_published INTEGER NOT NULL DEFAULT 0'
+			);
+		}
+
+		if (!columnNames.has('sent_at')) {
+			await addQuoteConfigurationColumn(
+				env,
+				'sent_at',
+				'ALTER TABLE quote_configurations ADD COLUMN sent_at TEXT'
+			);
+		}
+	})().catch((error) => {
+		ensureQuotePublicationColumnsPromise = null;
+		throw error;
+	});
+
+	return ensureQuotePublicationColumnsPromise;
+}
+
 function canAccessQuote(quote, userId, userRole) {
 	if (!quote || !userId || !userRole) {
 		return false;
 	}
 
 	if (userRole === 'customer') {
-		return Number(quote.customer_user_id) === Number(userId);
+		return (
+			Number(quote.customer_user_id) === Number(userId) &&
+			(
+				Number(quote.user_id) === Number(userId) ||
+				Number(quote.is_published) === 1
+			)
+		);
 	}
 
 	return true;
@@ -46,8 +99,10 @@ async function loadAccessibleQuote(env, quoteId, userId, userRole) {
 		return null;
 	}
 
+	await ensureQuoteConfigurationPublicationColumns(env);
+
 	const quote = await env.DB
-		.prepare('SELECT id, name, user_id, customer_user_id FROM quote_configurations WHERE id = ?')
+		.prepare('SELECT id, name, user_id, customer_user_id, is_published FROM quote_configurations WHERE id = ?')
 		.bind(normalizedQuoteId)
 		.first();
 
