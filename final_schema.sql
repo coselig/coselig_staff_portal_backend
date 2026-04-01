@@ -46,6 +46,16 @@ CREATE TABLE IF NOT EXISTS quote_configurations (
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Smart home assessment forms for staff
+CREATE TABLE IF NOT EXISTS smart_home_assessment_forms (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL UNIQUE,
+  form_data TEXT NOT NULL,
+  created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))),
+  updated_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours')))
+);
+
 -- Additional tables from Cloudflare metadata
 CREATE TABLE IF NOT EXISTS period_names (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,6 +72,7 @@ CREATE TABLE IF NOT EXISTS _cf_METADATA (
 CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company);
 CREATE INDEX IF NOT EXISTS idx_quote_configurations_customer_user_id ON quote_configurations(customer_user_id);
+CREATE INDEX IF NOT EXISTS idx_smart_home_assessment_forms_user_id ON smart_home_assessment_forms(user_id);
 
 -- Module options for the quotation system
 CREATE TABLE IF NOT EXISTS module_options (

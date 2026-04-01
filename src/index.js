@@ -8,6 +8,12 @@ import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
 import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption, handleGetDeviceConfigs } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption, handleGetPowerSupplyOptions, handleAddPowerSupplyOption, handleUpdatePowerSupplyOption, handleDeletePowerSupplyOption } from './quote.js';
+import {
+	handleDeleteSmartHomeAssessmentForm,
+	handleGetSmartHomeAssessmentForms,
+	handleLoadSmartHomeAssessmentForm,
+	handleSaveSmartHomeAssessmentForm,
+} from './smart_home_assessment_forms.js';
 import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
 import { requireAdmin, requireNonCustomer, requireSession, requireUser } from './session.js';
@@ -111,6 +117,8 @@ const routes = {
 		"/api/configurations/load": withGuard(requireSession, handleLoadConfiguration),
 		"/api/quote-configurations": withGuard(requireUser, handleGetQuoteConfigurations),
 		"/api/quote-configurations/load": withGuard(requireUser, handleLoadQuoteConfiguration),
+		"/api/smart-home-assessment-forms": withGuard(requireNonCustomer, handleGetSmartHomeAssessmentForms),
+		"/api/smart-home-assessment-forms/load": withGuard(requireNonCustomer, handleLoadSmartHomeAssessmentForm),
 		"/api/module-options": handleGetModuleOptions,
 		"/api/power-supply-options": handleGetPowerSupplyOptions,
 		"/api/fixture-type-options": handleGetFixtureTypeOptions,
@@ -133,6 +141,7 @@ const routes = {
 		"/api/simple-punch": handleSimplePunch,
 		"/api/configurations": withGuard(requireSession, handleSaveConfiguration),
 		"/api/quote-configurations": withGuard(requireSession, handleSaveQuoteConfiguration),
+		"/api/smart-home-assessment-forms": withGuard(requireNonCustomer, handleSaveSmartHomeAssessmentForm),
 		"/api/module-options": withGuard(requireNonCustomer, handleAddModuleOption),
 		"/api/power-supply-options": withGuard(requireNonCustomer, handleAddPowerSupplyOption),
 		"/api/fixture-type-options": withGuard(requireNonCustomer, handleAddFixtureTypeOption),
@@ -154,6 +163,7 @@ const routes = {
 	DELETE: {
 		"/api/configurations": withGuard(requireSession, handleDeleteConfiguration),
 		"/api/quote-configurations": withGuard(requireUser, handleDeleteQuoteConfiguration),
+		"/api/smart-home-assessment-forms": withGuard(requireNonCustomer, handleDeleteSmartHomeAssessmentForm),
 		"/api/module-options": withGuard(requireNonCustomer, handleDeleteModuleOption),
 		"/api/power-supply-options": withGuard(requireNonCustomer, handleDeletePowerSupplyOption),
 		"/api/fixture-type-options": withGuard(requireNonCustomer, handleDeleteFixtureTypeOption),
