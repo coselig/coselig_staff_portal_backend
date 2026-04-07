@@ -14,8 +14,9 @@ import {
 	handleLoadSmartHomeAssessmentForm,
 	handleSaveSmartHomeAssessmentForm,
 } from './smart_home_assessment_forms.js';
-import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences } from './users.js';
+import { handleGetCurrentUser, handleGetAllUsers, handleGetUserById, handleUpdateCurrentUser, handleUpdateThemeMode, handleUpdateUiPreferences, handleUpdateUserRole, handleGetUserRelatedData, handleDeleteUser } from './users.js';
 import { handleCreateCustomer, handleGetCustomers, handleGetCustomerById, handleUpdateCustomer, handleDeleteCustomer } from './customers.js';
+import { handleGetCases, handleCreateCase, handleGetCaseById, handleUpdateCase, handleDeleteCase, handleGetSnapshots, handleGetSnapshotById, handleCreateSnapshot, handleDeleteSnapshot } from './project_cases.js';
 import { requireAdmin, requireNonCustomer, requireSession, requireUser } from './session.js';
 import { WorkingStaffHub, broadcastWorkingStaffUpdate, handleWorkingStaffSocket } from './working_staff_hub.js';
 import { QuoteSyncHub, handleQuoteSyncSocket } from './quote_sync_hub.js';
@@ -128,10 +129,12 @@ const routes = {
 		"/api/users/me": withGuard(requireSession, handleGetCurrentUser),
 		"/api/users": withGuard(requireAdmin, handleGetAllUsers),
 		"/api/customers": withGuard(requireUser, handleGetCustomers),
+		"/api/cases": withGuard(requireNonCustomer, handleGetCases),
 	},
 	POST: {
 		"/api/logout": handleLogout,
 		"/api/google-login": handleGoogleLogin,
+		"/api/cases": withGuard(requireNonCustomer, handleCreateCase),
 		"/api/manual-punch": withGuard(requireAdmin, handleManualPunch),
 		"/api/employee-manual-punch": withGuard(requireSession, handleEmployeeManualPunch),
 		"/api/devtools/manual-punch": async (req, env) => {
@@ -203,10 +206,54 @@ export default {
 				return await handler(request, env);
 			}
 
+			// 處理動態路由 /api/cases/:id
+			const caseIdMatch = url.pathname.match(/^\/api\/cases\/(\d+)$/);
+			if (caseIdMatch) {
+				if (request.method === 'GET') {
+					return await runWithGuard(requireNonCustomer, request, env, handleGetCaseById, caseIdMatch[1]);
+				} else if (request.method === 'PUT') {
+					return await runWithGuard(requireNonCustomer, request, env, handleUpdateCase, caseIdMatch[1]);
+				} else if (request.method === 'DELETE') {
+					return await runWithGuard(requireAdmin, request, env, handleDeleteCase, caseIdMatch[1]);
+				}
+			}
+
+			// 處理動態路由 /api/cases/:id/snapshots
+			const caseSnapshotsMatch = url.pathname.match(/^\/api\/cases\/(\d+)\/snapshots$/);
+			if (caseSnapshotsMatch) {
+				if (request.method === 'GET') {
+					return await runWithGuard(requireNonCustomer, request, env, handleGetSnapshots, caseSnapshotsMatch[1]);
+				} else if (request.method === 'POST') {
+					return await runWithGuard(requireNonCustomer, request, env, handleCreateSnapshot, caseSnapshotsMatch[1]);
+				}
+			}
+
+			// 處理動態路由 /api/cases/:id/snapshots/:snapshotId
+			const caseSnapshotItemMatch = url.pathname.match(/^\/api\/cases\/(\d+)\/snapshots\/(\d+)$/);
+			if (caseSnapshotItemMatch) {
+				if (request.method === 'GET') {
+					return await runWithGuard(requireNonCustomer, request, env, handleGetSnapshotById, caseSnapshotItemMatch[1], caseSnapshotItemMatch[2]);
+				} else if (request.method === 'DELETE') {
+					return await runWithGuard(requireNonCustomer, request, env, handleDeleteSnapshot, caseSnapshotItemMatch[1], caseSnapshotItemMatch[2]);
+				}
+			}
+
 			// 處理動態路由 /api/users/:id
 			const userIdMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
-			if (userIdMatch && request.method === 'GET') {
-				return await runWithGuard(requireAdmin, request, env, handleGetUserById, userIdMatch[1]);
+			if (userIdMatch) {
+				if (request.method === 'GET') {
+					return await runWithGuard(requireAdmin, request, env, handleGetUserById, userIdMatch[1]);
+				} else if (request.method === 'PATCH') {
+					return await runWithGuard(requireAdmin, request, env, handleUpdateUserRole, userIdMatch[1]);
+				} else if (request.method === 'DELETE') {
+					return await runWithGuard(requireAdmin, request, env, handleDeleteUser, userIdMatch[1]);
+				}
+			}
+
+			// 處理動態路由 /api/users/:id/related-data
+			const userRelatedMatch = url.pathname.match(/^\/api\/users\/(\d+)\/related-data$/);
+			if (userRelatedMatch && request.method === 'GET') {
+				return await runWithGuard(requireAdmin, request, env, handleGetUserRelatedData, userRelatedMatch[1]);
 			}
 
 			// 處理動態路由 /api/customers/:id
