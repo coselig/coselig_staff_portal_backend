@@ -110,6 +110,18 @@ $CcVersionIgnoredPaths = @(Get-BashArray -Name 'CC_VERSION_IGNORED_PATHS' -Path 
 $CcVersionMinorPaths = @(Get-BashArray -Name 'CC_VERSION_MINOR_PATHS' -Path $RulesFile)
 $CcVersionPatchPaths = @(Get-BashArray -Name 'CC_VERSION_PATCH_PATHS' -Path $RulesFile)
 
+if ($CcVersionIgnoredPaths.Count -eq 0) {
+    $CcVersionIgnoredPaths = @('assets.json', 'pubspec.lock', 'package-lock.json')
+}
+
+if ($CcVersionMinorPaths.Count -eq 0) {
+    $CcVersionMinorPaths = @('migrations/*')
+}
+
+if ($CcVersionPatchPaths.Count -eq 0) {
+    $CcVersionPatchPaths = @('deploy.ps1', 'conventional_commit_rules.sh', 'upload.js', 'tool/*', 'wrangler.jsonc', 'src/*', 'test/*', 'lib/*', 'pubspec.yaml', 'package.json')
+}
+
 function Get-VersionBumpRank {
     param(
         [Parameter(Mandatory = $true)]
@@ -214,7 +226,8 @@ function Resolve-GitRoot {
         if ($LASTEXITCODE -eq 0) {
             return ($result -join "`n").Trim()
         }
-    } catch { }
+    }
+    catch { }
 
     return ''
 }
@@ -248,8 +261,8 @@ function Resolve-FrontendDir {
     }
 
     $candidates += Get-ChildItem -Path $parentDir -Directory |
-        Where-Object { $_.FullName -ne $ScriptDir -and $_.Name -match 'front|frontend' } |
-        Select-Object -ExpandProperty FullName
+    Where-Object { $_.FullName -ne $ScriptDir -and $_.Name -match 'front|frontend' } |
+    Select-Object -ExpandProperty FullName
 
     foreach ($candidate in $candidates) {
         if ($candidate -and (Test-Path (Join-Path $candidate 'pubspec.yaml'))) {
@@ -286,7 +299,8 @@ function Resolve-VersionAnchorEpoch {
         if ($LASTEXITCODE -eq 0) {
             return ($result -join "`n").Trim()
         }
-    } catch { }
+    }
+    catch { }
 
     return ''
 }
@@ -442,7 +456,7 @@ function Resolve-AutoVersionBump {
 
     if ($commitBump -ne 'none') {
         return [pscustomobject]@{
-            Bump = $commitBump
+            Bump   = $commitBump
             Source = 'conventional-commits'
         }
     }
@@ -452,7 +466,7 @@ function Resolve-AutoVersionBump {
     $pathBump = Get-MaxVersionBump -Left $pathBackendBump -Right $pathFrontendBump
 
     return [pscustomobject]@{
-        Bump = $pathBump
+        Bump   = $pathBump
         Source = 'path-rules'
     }
 }
@@ -469,7 +483,7 @@ function Resolve-VersionBumpWithSource {
     }
 
     return [pscustomobject]@{
-        Bump = $normalized
+        Bump   = $normalized
         Source = 'manual'
     }
 }
@@ -484,7 +498,8 @@ function Resolve-WranglerPackage {
         if ($resolvedVersion) {
             return "wrangler@$resolvedVersion"
         }
-    } catch { }
+    }
+    catch { }
 
     return 'wrangler@latest'
 }
@@ -512,30 +527,38 @@ function Read-WranglerConfigValue {
 
     switch ($Mode) {
         'worker-name' {
-            return [string]$config.name
+            if ($config.PSObject.Properties.Name -contains 'name') {
+                return [string]$config.name
+            }
+            return ''
         }
         'kv-namespace-id' {
             $binding = if ($env:KV_NAMESPACE_BINDING) { $env:KV_NAMESPACE_BINDING } else { 'STATIC_ASSETS' }
-            foreach ($namespace in @($config.kv_namespaces)) {
-                if ($namespace.binding -eq $binding) {
-                    return [string]$namespace.id
+            if ($config.PSObject.Properties.Name -contains 'kv_namespaces') {
+                foreach ($namespace in @($config.kv_namespaces)) {
+                    if ($namespace.binding -eq $binding) {
+                        return [string]$namespace.id
+                    }
                 }
             }
             return ''
         }
         'route-base-url' {
-            $routes = @($config.routes)
+            $routes = @()
+            if ($config.PSObject.Properties.Name -contains 'routes') {
+                $routes = @($config.routes)
+            }
             if ($routes.Count -eq 0) {
                 return ''
             }
 
             $firstRoute = $routes[0]
-            $pattern = if ($firstRoute -is [string]) {
-                [string]$firstRoute
-            } elseif ($firstRoute.pattern) {
-                [string]$firstRoute.pattern
-            } else {
-                ''
+            $pattern = ''
+            if ($firstRoute -is [string]) {
+                $pattern = [string]$firstRoute
+            }
+            elseif ($firstRoute -and $firstRoute.PSObject.Properties.Name -contains 'pattern') {
+                $pattern = [string]$firstRoute.pattern
             }
 
             if (-not $pattern) {
