@@ -11,32 +11,80 @@ export async function handleSaveConfiguration(request, env, auth) {
 		}
 
 		const { name, devices } = body;
+		const caseId = body?.case_id ?? null;
 
-		// 檢查是否已存在相同名稱的配置（不限制 user_id）
-		const existing = await env.DB
-			.prepare("SELECT id FROM device_configurations WHERE name = ?")
-			.bind(name)
-			.first();
+		// 嘗試以 case_id 操作；若資料庫尚未有 case_id 欄位則回退到不使用 case_id 的操作
+		try {
+			const existing = await env.DB
+				.prepare(caseId !== null ? "SELECT id FROM device_configurations WHERE name = ? AND case_id = ?" : "SELECT id FROM device_configurations WHERE name = ?")
+				.bind(...(caseId !== null ? [name, caseId] : [name]))
+				.first();
 
-		if (existing) {
-			// 更新現有配置（任何人都可以更新）
-			await env.DB
-				.prepare(`
-					UPDATE device_configurations
-					SET devices = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
-					WHERE name = ?
-				`)
-				.bind(JSON.stringify(devices), name)
-				.run();
-		} else {
-			// 創建新配置
-			await env.DB
-				.prepare(`
-				INSERT INTO device_configurations (user_id, name, devices)
-				VALUES (?, ?, ?)
-			`)
-				.bind(auth.session.user_id, name, JSON.stringify(devices))
-				.run();
+			if (existing) {
+				if (caseId !== null) {
+					await env.DB
+						.prepare(`
+							UPDATE device_configurations
+							SET devices = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+							WHERE name = ? AND case_id = ?
+						`)
+						.bind(JSON.stringify(devices), name, caseId)
+						.run();
+				} else {
+					await env.DB
+						.prepare(`
+							UPDATE device_configurations
+							SET devices = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+							WHERE name = ?
+						`)
+						.bind(JSON.stringify(devices), name)
+						.run();
+				}
+			} else {
+				if (caseId !== null) {
+					await env.DB
+						.prepare(`
+							INSERT INTO device_configurations (user_id, name, devices, case_id)
+							VALUES (?, ?, ?, ?)
+						`)
+						.bind(auth.session.user_id, name, JSON.stringify(devices), caseId)
+						.run();
+				} else {
+					await env.DB
+						.prepare(`
+							INSERT INTO device_configurations (user_id, name, devices)
+							VALUES (?, ?, ?)
+						`)
+						.bind(auth.session.user_id, name, JSON.stringify(devices))
+						.run();
+				}
+			}
+		} catch (err) {
+			// 若是因為 case_id 欄位不存在導致的錯誤，回退至不帶 case_id 的舊流程
+			console.warn('SaveConfiguration: SQL with case_id failed, retrying without case_id', err);
+			const existing = await env.DB
+				.prepare("SELECT id FROM device_configurations WHERE name = ?")
+				.bind(name)
+				.first();
+
+			if (existing) {
+				await env.DB
+					.prepare(`
+						UPDATE device_configurations
+						SET devices = ?, updated_at = strftime('%Y-%m-%d %H:%M:%S', datetime('now', '+8 hours'))
+						WHERE name = ?
+					`)
+					.bind(JSON.stringify(devices), name)
+					.run();
+			} else {
+				await env.DB
+					.prepare(`
+						INSERT INTO device_configurations (user_id, name, devices)
+						VALUES (?, ?, ?)
+					`)
+					.bind(auth.session.user_id, name, JSON.stringify(devices))
+					.run();
+			}
 		}
 
 		return jsonResponse({ ok: true, message: "Configuration saved successfully" }, 200, request);
@@ -52,22 +100,39 @@ export async function handleLoadConfiguration(request, env) {
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
+		const caseIdParam = url.searchParams.get('case_id');
+		const caseId = caseIdParam ? Number(caseIdParam) : null;
 
 		if (!name) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		const config = await env.DB
-			.prepare("SELECT devices FROM device_configurations WHERE name = ?")
-			.bind(name)
-			.first();
+		try {
+			const config = await env.DB
+				.prepare(caseId !== null ? "SELECT devices FROM device_configurations WHERE name = ? AND case_id = ?" : "SELECT devices FROM device_configurations WHERE name = ?")
+				.bind(...(caseId !== null ? [name, caseId] : [name]))
+				.first();
 
-		if (!config) {
-			return jsonResponse({ error: "Configuration not found" }, 404, request);
+			if (!config) {
+				return jsonResponse({ error: "Configuration not found" }, 404, request);
+			}
+
+			const devices = JSON.parse(config.devices);
+			return jsonResponse({ devices }, 200, request);
+		} catch (err) {
+			console.warn('LoadConfiguration: SQL with case_id failed, retrying without case_id', err);
+			const config = await env.DB
+				.prepare("SELECT devices FROM device_configurations WHERE name = ?")
+				.bind(name)
+				.first();
+
+			if (!config) {
+				return jsonResponse({ error: "Configuration not found" }, 404, request);
+			}
+
+			const devices = JSON.parse(config.devices);
+			return jsonResponse({ devices }, 200, request);
 		}
-
-		const devices = JSON.parse(config.devices);
-		return jsonResponse({ devices }, 200, request);
 
 	} catch (err) {
 		console.error('Load configuration error:', err);
@@ -78,9 +143,40 @@ export async function handleLoadConfiguration(request, env) {
 // 獲取配置列表
 export async function handleGetConfigurations(request, env) {
 	try {
-		// 獲取所有配置並關聯用戶資訊
-		const configs = await env.DB
-			.prepare(`
+		// 可選地按 case_id 過濾
+		const url = new URL(request.url);
+		const caseIdParam = url.searchParams.get('case_id');
+		const caseId = caseIdParam ? Number(caseIdParam) : null;
+
+		let query = `
+			SELECT 
+				dc.id,
+				dc.user_id,
+				dc.name,
+				dc.devices,
+				dc.created_at,
+				dc.updated_at,
+				u.chinese_name,
+				u.name as user_name
+			FROM device_configurations dc
+			LEFT JOIN users u ON dc.user_id = u.id
+			`;
+
+		if (caseId !== null) {
+			query += `WHERE dc.case_id = ? `;
+		}
+		query += `ORDER BY dc.updated_at DESC`;
+
+		try {
+			const configs = caseId !== null
+				? await env.DB.prepare(query).bind(caseId).all()
+				: await env.DB.prepare(query).all();
+
+			return jsonResponse({ configurations: configs.results }, 200, request);
+		} catch (err) {
+			console.warn('GetConfigurations: SQL with case_id failed, retrying without case_id', err);
+			// Retry without case_id filter
+			const fallbackQuery = `
 				SELECT 
 					dc.id,
 					dc.user_id,
@@ -93,10 +189,10 @@ export async function handleGetConfigurations(request, env) {
 				FROM device_configurations dc
 				LEFT JOIN users u ON dc.user_id = u.id
 				ORDER BY dc.updated_at DESC
-			`)
-			.all();
-
-		return jsonResponse({ configurations: configs.results }, 200, request);
+			`;
+			const configs = await env.DB.prepare(fallbackQuery).all();
+			return jsonResponse({ configurations: configs.results }, 200, request);
+		}
 
 	} catch (err) {
 		console.error('Get configurations error:', err);
@@ -109,15 +205,31 @@ export async function handleDeleteConfiguration(request, env) {
 	try {
 		const url = new URL(request.url);
 		const name = url.searchParams.get('name');
+		const caseIdParam = url.searchParams.get('case_id');
+		const caseId = caseIdParam ? Number(caseIdParam) : null;
 
 		if (!name) {
 			return jsonResponse({ error: "Configuration name is required" }, 400, request);
 		}
 
-		const result = await env.DB
-			.prepare("DELETE FROM device_configurations WHERE name = ?")
-			.bind(name)
-			.run();
+		try {
+			const result = caseId !== null
+				? await env.DB.prepare("DELETE FROM device_configurations WHERE name = ? AND case_id = ?").bind(name, caseId).run()
+				: await env.DB.prepare("DELETE FROM device_configurations WHERE name = ?").bind(name).run();
+
+			if (result.changes === 0) {
+				return jsonResponse({ error: "Configuration not found" }, 404, request);
+			}
+
+			return jsonResponse({ ok: true, message: "Configuration deleted successfully" }, 200, request);
+		} catch (err) {
+			console.warn('DeleteConfiguration: SQL with case_id failed, retrying without case_id', err);
+			const result = await env.DB.prepare("DELETE FROM device_configurations WHERE name = ?").bind(name).run();
+			if (result.changes === 0) {
+				return jsonResponse({ error: "Configuration not found" }, 404, request);
+			}
+			return jsonResponse({ ok: true, message: "Configuration deleted successfully" }, 200, request);
+		}
 
 		if (result.changes === 0) {
 			return jsonResponse({ error: "Configuration not found" }, 404, request);

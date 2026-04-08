@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS device_configurations (
   user_id INTEGER NOT NULL,
   name TEXT NOT NULL,
   devices TEXT NOT NULL,
+  case_id INTEGER DEFAULT NULL,
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -75,6 +76,9 @@ CREATE INDEX IF NOT EXISTS idx_customers_user_id ON customers(user_id);
 CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company);
 CREATE INDEX IF NOT EXISTS idx_quote_configurations_customer_user_id ON quote_configurations(customer_user_id);
 CREATE INDEX IF NOT EXISTS idx_smart_home_assessment_forms_user_id ON smart_home_assessment_forms(user_id);
+
+-- Index to speed up lookups by case
+CREATE INDEX IF NOT EXISTS idx_device_configurations_case_id ON device_configurations(case_id);
 
 -- Module options for the quotation system
 CREATE TABLE IF NOT EXISTS module_options (
