@@ -465,3 +465,40 @@ export async function handleDeleteDeviceConfigOption(request, env) {
 		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
 	}
 }
+
+// 綁定配置到案件（更新 existing row 的 case_id）
+export async function handleBindConfiguration(request, env, auth) {
+	try {
+		const body = await request.json().catch(() => null);
+		const name = body?.name ?? null;
+		const caseId = body?.case_id ?? null;
+
+		if (!name || caseId === null) {
+			return jsonResponse({ error: 'Missing name or case_id' }, 400, request);
+		}
+
+		try {
+			const result = await env.DB
+				.prepare('UPDATE device_configurations SET case_id = ? WHERE name = ?')
+				.bind(caseId, name)
+				.run();
+
+			if (result.changes === 0) {
+				// 如果沒有更新到任何列，表示沒有同名配置，嘗試插入一筆新的綁定配置（使用當前使用者）
+				await env.DB
+					.prepare('INSERT INTO device_configurations (user_id, name, devices, case_id) VALUES (?, ?, ?, ?)')
+					.bind(auth.session.user_id, name, JSON.stringify([]), caseId)
+					.run();
+			}
+
+			return jsonResponse({ ok: true, message: 'Configuration bound to case' }, 200, request);
+		} catch (err) {
+			// 如果 SQL 因為缺少 case_id 欄位失敗，回傳清楚的錯誤
+			console.warn('BindConfiguration: SQL failed', err);
+			return jsonResponse({ error: 'Bind failed, database may be missing case_id column', detail: String(err) }, 500, request);
+		}
+	} catch (err) {
+		console.error('Bind configuration error:', err);
+		return jsonResponse({ error: 'Internal Server Error', detail: err?.message ?? String(err) }, 500, request);
+	}
+}

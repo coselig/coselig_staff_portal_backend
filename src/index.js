@@ -6,7 +6,7 @@ import { corsHeaders, jsonResponse } from './utils.js';
 import { handleMe, handleLogout, handleGoogleLogin } from './auth.js';
 import { handleEmployees, handleWorkingStaff } from './employees.js';
 import { handleManualPunch, handleEmployeeManualPunch, checkIn, checkOut, getToday, getMonth, updatePeriodName } from './attendance.js';
-import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption, handleGetDeviceConfigs } from './discovery.js';
+import { handleSaveConfiguration, handleLoadConfiguration, handleGetConfigurations, handleDeleteConfiguration, handleGetDeviceConfigOptions, handleAddDeviceConfigOption, handleUpdateDeviceConfigOption, handleDeleteDeviceConfigOption, handleGetDeviceConfigs, handleBindConfiguration } from './discovery.js';
 import { handleSaveQuoteConfiguration, handleLoadQuoteConfiguration, handleGetQuoteConfigurations, handleDeleteQuoteConfiguration, handleGetModuleOptions, handleAddModuleOption, handleUpdateModuleOption, handleDeleteModuleOption, handleGetFixtureTypeOptions, handleAddFixtureTypeOption, handleUpdateFixtureTypeOption, handleDeleteFixtureTypeOption, handleGetSwitchOptions, handleAddSwitchOption, handleUpdateSwitchOption, handleDeleteSwitchOption, handleGetPowerSupplyOptions, handleAddPowerSupplyOption, handleUpdatePowerSupplyOption, handleDeletePowerSupplyOption } from './quote.js';
 import {
 	handleDeleteSmartHomeAssessmentForm,
@@ -143,6 +143,7 @@ const routes = {
 		},
 		"/api/simple-punch": handleSimplePunch,
 		"/api/configurations": withGuard(requireSession, handleSaveConfiguration),
+		"/api/configurations/bind": withGuard(requireSession, handleBindConfiguration),
 		"/api/quote-configurations": withGuard(requireSession, handleSaveQuoteConfiguration),
 		"/api/smart-home-assessment-forms": withGuard(requireNonCustomer, handleSaveSmartHomeAssessmentForm),
 		"/api/module-options": withGuard(requireNonCustomer, handleAddModuleOption),
